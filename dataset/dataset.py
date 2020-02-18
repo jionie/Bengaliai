@@ -22,6 +22,8 @@ from torchvision import datasets, models, transforms
 import albumentations
 from albumentations import pytorch as AT
 
+from DataSampler import *
+
 
 ############################################ Define augments for dataset
 
@@ -128,7 +130,7 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         gc.collect()
 
     def __len__(self):
-        return len(self.uid)
+        return len(self.df)
 
     def __getitem__(self, idx):
         
@@ -145,7 +147,7 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
                 self.grapheme_labels_dict[image_id]
         else:
             return image
-    
+
 
 
 ############################################ Define get functions
@@ -199,7 +201,8 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
                         val_batch_size=4, \
                         num_workers=2, \
                         train_transform=train_transform, \
-                        val_transform=test_transform):
+                        val_transform=test_transform, \
+                        Balanced="ImbalancedDatasetSampler"):
     
 
     
@@ -244,7 +247,15 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
                                 vowel_diacritic_labels_dict=img_class_dict_vowel_diacritic, \
                                 consonant_diacritic_labels_dict=img_class_dict_consonant_diacritic, \
                                 grapheme_labels_dict=img_class_dict_grapheme)
-    train_loader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True)
+    
+    if Balanced == "BalanceSampler":
+        train_loader = torch.utils.data.DataLoader(ds_train, sampler=BalanceSampler(ds_train), \
+        batch_size=batch_size, num_workers=num_workers, drop_last=True)
+    elif Balanced == "ImbalancedDatasetSampler":
+        train_loader = torch.utils.data.DataLoader(ds_train, sampler=ImbalancedDatasetSampler(ds_train), \
+        batch_size=batch_size, num_workers=num_workers, drop_last=True)
+    else:
+        train_loader = torch.utils.data.DataLoader(ds_trainbatch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True)
     train_loader.num = len(train_df)
 
     ds_val = bengaliai_Dataset(data_path, \
