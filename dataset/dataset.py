@@ -137,14 +137,12 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         # image = image.astype(np.float32)/255
         
         if self.labeled:
-            grapheme_root, vowel_diacritic, consonant_diacritic, grapheme = self.df.loc[self.df['image_id'] == image_id, \
-                ['grapheme_root', 'vowel_diacritic', 'consonant_diacritic', 'grapheme']]
             
             return image, \
-                self.grapheme_root_labels_dict[grapheme_root], \
-                self.vowel_diacritic_labels_dict[vowel_diacritic], \
-                self.consonant_diacritic_labels_dict[consonant_diacritic], \
-                self.grapheme_root_labels_dict[grapheme]
+                self.grapheme_root_labels_dict[image_id], \
+                self.vowel_diacritic_labels_dict[image_id], \
+                self.consonant_diacritic_labels_dict[image_id], \
+                self.grapheme_labels_dict[image_id]
         else:
             return image
     
@@ -207,6 +205,7 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
     
     train_df = pd.read_csv(train_df, encoding='utf8')
     val_df = pd.read_csv(val_df, encoding='utf8')
+    df = pd.concat([train_df, val_df], axis=0)
     
     print(train_df.shape)
     print(val_df.shape)
@@ -223,50 +222,39 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
     class_map = dict(pd.read_csv(data_path + '/grapheme_1295.csv')[['grapheme','label']].values)
     train_df['grapheme'] = train_df['grapheme'].map(class_map)
     val_df['grapheme'] = val_df['grapheme'].map(class_map)
+    df['grapheme'] = df['grapheme'].map(class_map)
     
-    labels_encoded_grapheme_root_train = prepare_labels(train_df['grapheme_root'].values)
-    img_class_dict_grapheme_root_train = {k:v for k, v in zip(train_df['image_id'].values, labels_encoded_grapheme_root_train)}
+    labels_encoded_grapheme_root = prepare_labels(df['grapheme_root'].values)
+    img_class_dict_grapheme_root = {k:v for k, v in zip(df['image_id'].values, labels_encoded_grapheme_root)}
     
-    labels_encoded_vowel_diacritic_train = prepare_labels(train_df['vowel_diacritic'].values)
-    img_class_dict_vowel_diacritic_train = {k:v for k, v in zip(train_df['image_id'].values, labels_encoded_vowel_diacritic_train)}
+    labels_encoded_vowel_diacritic = prepare_labels(df['vowel_diacritic'].values)
+    img_class_dict_vowel_diacritic = {k:v for k, v in zip(df['image_id'].values, labels_encoded_vowel_diacritic)}
     
-    labels_encoded_consonant_diacritic_train = prepare_labels(train_df['consonant_diacritic'].values)
-    img_class_dict_consonant_diacritic_train = {k:v for k, v in zip(train_df['image_id'].values, labels_encoded_consonant_diacritic_train)}
+    labels_encoded_consonant_diacritic = prepare_labels(df['consonant_diacritic'].values)
+    img_class_dict_consonant_diacritic = {k:v for k, v in zip(df['image_id'].values, labels_encoded_consonant_diacritic)}
     
-    labels_encoded_grapheme_train = prepare_labels(train_df['grapheme'].values)
-    img_class_dict_grapheme_train = {k:v for k, v in zip(train_df['image_id'].values, labels_encoded_grapheme_train)}
+    labels_encoded_grapheme = prepare_labels(df['grapheme'].values)
+    img_class_dict_grapheme = {k:v for k, v in zip(df['image_id'].values, labels_encoded_grapheme)}
     
     ds_train = bengaliai_Dataset(data_path, \
                                 train_df, \
                                 labeled=True, \
                                 transform=train_transform, \
-                                grapheme_root_labels_dict=img_class_dict_grapheme_root_train, \
-                                vowel_diacritic_labels_dict=img_class_dict_vowel_diacritic_train, \
-                                consonant_diacritic_labels_dict=img_class_dict_consonant_diacritic_train, \
-                                grapheme_labels_dict=img_class_dict_grapheme_train)
+                                grapheme_root_labels_dict=img_class_dict_grapheme_root, \
+                                vowel_diacritic_labels_dict=img_class_dict_vowel_diacritic, \
+                                consonant_diacritic_labels_dict=img_class_dict_consonant_diacritic, \
+                                grapheme_labels_dict=img_class_dict_grapheme)
     train_loader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True)
     train_loader.num = len(train_df)
-
-    labels_encoded_grapheme_root_val = prepare_labels(val_df['grapheme_root'].values)
-    img_class_dict_grapheme_root_val = {k:v for k, v in zip(val_df['image_id'].values, labels_encoded_grapheme_root_val)}
-    
-    labels_encoded_vowel_diacritic_val = prepare_labels(val_df['vowel_diacritic'].values)
-    img_class_dict_vowel_diacritic_val = {k:v for k, v in zip(val_df['image_id'].values, labels_encoded_vowel_diacritic_val)}
-    
-    labels_encoded_consonant_diacritic_val = prepare_labels(val_df['consonant_diacritic'].values)
-    img_class_dict_consonant_diacritic_val = {k:v for k, v in zip(val_df['image_id'].values, labels_encoded_consonant_diacritic_val)}
-    
-    labels_encoded_grapheme_val = prepare_labels(val_df['grapheme'].values)
-    img_class_dict_grapheme_val = {k:v for k, v in zip(val_df['image_id'].values, labels_encoded_grapheme_val)}
 
     ds_val = bengaliai_Dataset(data_path, \
                                val_df, \
                                labeled=True, \
                                transform=val_transform, \
-                               grapheme_root_labels_dict=img_class_dict_grapheme_root_val, \
-                               vowel_diacritic_labels_dict=img_class_dict_vowel_diacritic_val, \
-                               consonant_diacritic_labels_dict=img_class_dict_consonant_diacritic_val, \
-                               grapheme_labels_dict=img_class_dict_grapheme_val)
+                               grapheme_root_labels_dict=img_class_dict_grapheme_root, \
+                               vowel_diacritic_labels_dict=img_class_dict_vowel_diacritic, \
+                               consonant_diacritic_labels_dict=img_class_dict_consonant_diacritic, \
+                               grapheme_labels_dict=img_class_dict_grapheme)
     val_loader = torch.utils.data.DataLoader(ds_val, batch_size=val_batch_size, shuffle=False, num_workers=num_workers, drop_last=False)
     val_loader.df = val_df
 
@@ -316,7 +304,7 @@ def test_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inp
     
 
     for image, grapheme_root, vowel_diacritic, consonant_diacritic, grapheme in train_loader:
-        print("------------------------testing finetune train loader----------------------")
+        print("------------------------testing train loader----------------------")
         print("image shape:", image.shape)
         print("grapheme_root shape: ", grapheme_root.shape)
         print("vowel_diacritic shape: ", vowel_diacritic.shape)
@@ -327,11 +315,11 @@ def test_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inp
         print("vowel_diacritic: ", vowel_diacritic)
         print("consonant_diacritic: ", consonant_diacritic)
         print("grapheme: ", grapheme)
-        print("------------------------testing finetune train loader finished----------------------")
+        print("------------------------testing train loader finished----------------------")
         break
 
     for image, grapheme_root, vowel_diacritic, consonant_diacritic, grapheme in val_loader:
-        print("------------------------testing finetune val loader----------------------")
+        print("------------------------testing val loader----------------------")
         print("image shape:", image.shape)
         print("grapheme_root shape: ", grapheme_root.shape)
         print("vowel_diacritic shape: ", vowel_diacritic.shape)
@@ -342,7 +330,7 @@ def test_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inp
         print("vowel_diacritic: ", vowel_diacritic)
         print("consonant_diacritic: ", consonant_diacritic)
         print("grapheme: ", grapheme)
-        print("------------------------testing finetune val loader finished----------------------")
+        print("------------------------testing val loader finished----------------------")
         break
 
 
@@ -357,10 +345,10 @@ def test_test_loader(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/input/ben
                             test_trainsform=test_trainsform)
 
     for image in test_loader:
-        print("------------------------testing finetune test loader----------------------")
+        print("------------------------testing test loader----------------------")
         print("image shape: ", image.shape)
         print("image: ", image)
-        print("------------------------testing finetune test loader finished----------------------")
+        print("------------------------testing test loader finished----------------------")
         break
 
 
@@ -368,7 +356,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     
-    # test split for finetuning
+    # test split for training
     test_train_val_split(df_path=args.df_path, \
                         save_path=args.save_path, \
                         n_splits=args.n_splits, \
