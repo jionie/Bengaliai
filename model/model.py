@@ -121,8 +121,8 @@ class BengaliaiNet(nn.Module):
 def test_Net():
     print("------------------------testing Net----------------------")
 
-    x = torch.tensor(np.random.random((4, 3, 137, 236)).astype(np.float32))
-    model = BengaliaiNet()
+    x = torch.tensor(np.random.random((96, 3, 137, 236)).astype(np.float32)).cuda()
+    model = BengaliaiNet().cuda()
 
     logits = model(x)
     print(logits[0], logits[1], logits[2], logits[3])

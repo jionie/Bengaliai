@@ -1,5 +1,5 @@
-python train.py --n_splits 5 --seed 42 --fold 0 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 16 --valid_batch_size 64 --accumulation_steps 2 --num_workers 4 --early_stopping 3
-python train.py --n_splits 5 --seed 42 --fold 1 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 16 --valid_batch_size 64 --accumulation_steps 2 --num_workers 4 --early_stopping 3
-python train.py --n_splits 5 --seed 42 --fold 2 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 16 --valid_batch_size 64 --accumulation_steps 2 --num_workers 4 --early_stopping 3
-python train.py --n_splits 5 --seed 42 --fold 3 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 16 --valid_batch_size 64 --accumulation_steps 2 --num_workers 4 --early_stopping 3
-python train.py --n_splits 5 --seed 42 --fold 4 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 16 --valid_batch_size 64 --accumulation_steps 2 --num_workers 4 --early_stopping 3
+python train.py --n_splits 5 --seed 42 --fold 0 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 96 --valid_batch_size 128 --accumulation_steps 1 --num_workers 4 --early_stopping 3
+python train.py --n_splits 5 --seed 42 --fold 1 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 96 --valid_batch_size 128 --accumulation_steps 1 --num_workers 4 --early_stopping 3
+python train.py --n_splits 5 --seed 42 --fold 2 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 96 --valid_batch_size 128 --accumulation_steps 1 --num_workers 4 --early_stopping 3
+python train.py --n_splits 5 --seed 42 --fold 3 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 96 --valid_batch_size 128 --accumulation_steps 1 --num_workers 4 --early_stopping 3
+python train.py --n_splits 5 --seed 42 --fold 4 --model_type "seresnext50" --loss "bce" --lr 4e-3 --num_epoch 30 --batch_size 96 --valid_batch_size 128 --accumulation_steps 1 --num_workers 4 --early_stopping 3
