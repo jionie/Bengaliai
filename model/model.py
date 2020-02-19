@@ -34,12 +34,16 @@ class BengaliaiNet(nn.Module):
         
         if model_type == "ResNet34":
             self.basemodel = ptcv_get_model("resnet34", pretrained=True)
+            self.basemodel.features.final_pool = nn.AvgPool2d(kernel_size=1, stride=1)
         elif model_type == "seresnext50":
             self.basemodel = ptcv_get_model("seresnext50_32x4d", pretrained=True)
+            self.basemodel.features.final_pool = nn.AvgPool2d(kernel_size=1, stride=1)
         elif model_type == "seresnext101":
             self.basemodel = ptcv_get_model("seresnext101_32x4d", pretrained=True)
+            self.basemodel.features.final_pool = nn.AvgPool2d(kernel_size=1, stride=1)
         elif model_type == "senet154":
             self.basemodel = ptcv_get_model("senet154", pretrained=True)
+            self.basemodel.features.final_pool = nn.AvgPool2d(kernel_size=1, stride=1)
         elif model_type == 'efficientnet-b0':
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b0')
         elif model_type == 'efficientnet-b1':
@@ -117,7 +121,7 @@ class BengaliaiNet(nn.Module):
 def test_Net():
     print("------------------------testing Net----------------------")
 
-    x = torch.tensor(np.random.random((4, 3, 384, 384)).astype(np.float32))
+    x = torch.tensor(np.random.random((4, 3, 137, 236)).astype(np.float32))
     model = BengaliaiNet()
 
     logits = model(x)
