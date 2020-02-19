@@ -429,14 +429,15 @@ def training(
                 train_loss          = sum_train_loss / (sum_train + 1e-12)
                 sum_train_loss[...] = 0
                 sum_train[...]      = 0
+                
                 grapheme_root_recall_train.append(metric(grapheme_root_prediction_train, grapheme_root_train))
                 vowel_diacritic_recall_train.append(metric(vowel_diacritic_prediction_train, vowel_diacritic_train))
                 consonant_diacritic_recall_train.append(metric(consonant_diacritic_prediction_train, consonant_diacritic_train))
                 grapheme_recall_train.append(metric(grapheme_prediction_train, grapheme_train))
                 
-                average_recall_train.append(np.average([grapheme_root_recall_train, \
-                    vowel_diacritic_recall_train, \
-                    consonant_diacritic_recall_train], weights=[2, 1, 1]))
+                average_recall_train.append(np.average([grapheme_root_recall_train[-1], \
+                    vowel_diacritic_recall_train[-1], \
+                    consonant_diacritic_recall_train[-1]], weights=[2, 1, 1]))
                 
                 log.write('lr: %f train loss: %f average_recall: %f grapheme_root_recall: %f vowel_diacritic_recall: %f consonant_diacritic_recall: %f grapheme_recall: %f\n' % \
                     (rate, train_loss[0], np.mean(average_recall_train), \
@@ -546,9 +547,9 @@ def training(
                         consonant_diacritic_recall_val.append(metric(consonant_diacritic_prediction_val, consonant_diacritic_val))
                         grapheme_recall_val.append(metric(grapheme_prediction_val, grapheme_val))
                         
-                        average_recall_val.append(np.average([grapheme_root_recall_val, \
-                            vowel_diacritic_recall_val, \
-                            consonant_diacritic_recall_val], weights=[2, 1, 1]))
+                        average_recall_val.append(np.average([grapheme_root_recall_val[-1], \
+                            vowel_diacritic_recall_val[-1], \
+                            consonant_diacritic_recall_val[-1]], weights=[2, 1, 1]))
             
                         
                     valid_loss = valid_loss / valid_num
