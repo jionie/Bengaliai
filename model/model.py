@@ -27,15 +27,17 @@ class GeM(nn.Module):
 
 ############################################ Define Net Class
 class BengaliaiNet(nn.Module):
-    def __init__(self, model_type="efficientnet-b5", n_classes=[168, 11, 7, 1295]):
+    def __init__(self, model_type="seresnext50", n_classes=[168, 11, 7, 1295]):
         super(BengaliaiNet, self).__init__()
         self.model_type = model_type
         self.n_classes = n_classes
         
         if model_type == "ResNet34":
             self.basemodel = ptcv_get_model("resnet34", pretrained=True)
+        elif model_type == "seresnext50":
+            self.basemodel = ptcv_get_model("seresnext50_32x4d", pretrained=True)
         elif model_type == "seresnext101":
-            self.basemodel = ptcv_get_model("seresnext101", pretrained=True)
+            self.basemodel = ptcv_get_model("seresnext101_32x4d", pretrained=True)
         elif model_type == "senet154":
             self.basemodel = ptcv_get_model("senet154", pretrained=True)
         elif model_type == 'efficientnet-b0':
@@ -73,11 +75,13 @@ class BengaliaiNet(nn.Module):
         bs = x.shape[0]
         
         if self.model_type == "ResNet34":
-            x = self.basemodel.feature(x)
+            x = self.basemodel.features(x)
+        elif self.model_type == "seresnext50":
+            x = self.basemodel.features(x)
         elif self.model_type == "seresnext101":
-            x = self.basemodel.feature(x)
+            x = self.basemodel.features(x)
         elif self.model_type == "senet154":
-            x = self.basemodel.feature(x)
+            x = self.basemodel.features(x)
         elif self.model_type == 'efficientnet-b0':
             x = self.basemodel.extract_features(x)
         elif self.model_type == 'efficientnet-b1':

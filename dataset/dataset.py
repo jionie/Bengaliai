@@ -21,8 +21,9 @@ from torchvision import datasets, models, transforms
 
 import albumentations
 from albumentations import pytorch as AT
+from .Augmentation import *
 
-from DataSampler import *
+from .DataSampler import *
 
 
 ############################################ Define augments for dataset
@@ -65,14 +66,15 @@ train_transform = albumentations.Compose([
     albumentations.RandomRotate90(p=0.5),
     albumentations.Transpose(p=0.5),
     albumentations.Flip(p=0.5),
-    albumentations.OneOf([
-        albumentations.RandomBrightness(0.15, p=1), 
-        albumentations.RandomContrast(0.15, p=1),
-        albumentations.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.3), p=1),
-        albumentations.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, p=1)
-    ], p=0.5), 
+    RandomAugMix(severity=3, width=3, alpha=1., p=1.),
+    # albumentations.OneOf([
+    #     albumentations.RandomBrightness(0.15, p=1), 
+    #     albumentations.RandomContrast(0.15, p=1),
+    #     albumentations.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.3), p=1),
+    #     albumentations.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, p=1)
+    # ], p=0.5), 
     albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=45, border_mode=1, p=0.5),
-    albumentations.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    # albumentations.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     AT.ToTensor(),
     ])
 
@@ -81,21 +83,22 @@ train_transform_advprop = albumentations.Compose([
     albumentations.RandomRotate90(p=0.5),
     albumentations.Transpose(p=0.5),
     albumentations.Flip(p=0.5),
-    albumentations.OneOf([
-        albumentations.RandomBrightness(0.15, p=1), 
-        albumentations.RandomContrast(0.15, p=1),
-        albumentations.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.3), p=1),
-        albumentations.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, p=1)
-    ], p=0.5), 
+    RandomAugMix(severity=3, width=3, alpha=1., p=1.),
+    # albumentations.OneOf([
+    #     albumentations.RandomBrightness(0.15, p=1), 
+    #     albumentations.RandomContrast(0.15, p=1),
+    #     albumentations.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.3), p=1),
+    #     albumentations.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, p=1)
+    # ], p=0.5), 
     albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.15, rotate_limit=45, border_mode=1, p=0.5),
-    albumentations.Lambda(lambda img: img * 2.0 - 1.0),
+    # albumentations.Lambda(lambda img: img * 2.0 - 1.0),
     AT.ToTensor(),
     ])
 
 
 test_transform = albumentations.Compose([
     albumentations.Resize(IMAGE_HEIGHT, IMAGE_WIDTH),
-    albumentations.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    # albumentations.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     AT.ToTensor(),
     ])
 
@@ -136,7 +139,9 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         
         image_id = self.uid[idx]
         image = self.image[idx].copy().reshape(137, 236)
-        # image = image.astype(np.float32)/255
+        image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2)
+        image = image.astype(np.float32)/255
+        image = np.transpose(image, (2, 0, 1))
         
         if self.labeled:
             
