@@ -43,6 +43,7 @@ parser.add_argument('--test_df_path', type=str, \
     required=False, help='specify the df path of test dataset')
 parser.add_argument('--n_splits', type=int, default=5, \
     required=False, help='specify the number of folds')
+parser.add_argument('--split', type=str, default="StratifiedKFold", required=False, help="specify the splitting dataset way")
 parser.add_argument('--seed', type=int, default=42, \
     required=False, help='specify the random seed for splitting dataset')
 parser.add_argument('--save_path', type=str, default="/media/jionie/my_disk/Kaggle/Bengaliai/input/bengaliai-cv19/", \
@@ -67,14 +68,7 @@ train_transform = albumentations.Compose([
     albumentations.Transpose(p=0.5),
     albumentations.Flip(p=0.5),
     RandomAugMix(severity=3, width=3, alpha=1., p=1.),
-    # albumentations.OneOf([
-    #     albumentations.RandomBrightness(0.15, p=1), 
-    #     albumentations.RandomContrast(0.15, p=1),
-    #     albumentations.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.3), p=1),
-    #     albumentations.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, p=1)
-    # ], p=0.5), 
     albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=45, border_mode=1, p=0.5),
-    # albumentations.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     AT.ToTensor(),
     ])
 
@@ -84,21 +78,13 @@ train_transform_advprop = albumentations.Compose([
     albumentations.Transpose(p=0.5),
     albumentations.Flip(p=0.5),
     RandomAugMix(severity=3, width=3, alpha=1., p=1.),
-    # albumentations.OneOf([
-    #     albumentations.RandomBrightness(0.15, p=1), 
-    #     albumentations.RandomContrast(0.15, p=1),
-    #     albumentations.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.3), p=1),
-    #     albumentations.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, p=1)
-    # ], p=0.5), 
     albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.15, rotate_limit=45, border_mode=1, p=0.5),
-    # albumentations.Lambda(lambda img: img * 2.0 - 1.0),
     AT.ToTensor(),
     ])
 
 
 test_transform = albumentations.Compose([
     albumentations.Resize(IMAGE_HEIGHT, IMAGE_WIDTH),
-    # albumentations.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     AT.ToTensor(),
     ])
 
@@ -162,22 +148,29 @@ def get_train_val_split(df_path="/media/jionie/my_disk/Kaggle/Bengaliai/input/be
                         seed=42, \
                         split="MultilabelStratifiedKFold"):
 
-    os.makedirs(save_path + '/split', exist_ok=True)
+    os.makedirs(save_path + 'split/' + split, exist_ok=True)
     df = pd.read_csv(df_path, encoding='utf8')
     df = df.fillna(0)
     
     # df = df[['image_id', 'grapheme_root', 'vowel_diacritic', 'consonant_diacritic']]
     
-    kf = MultilabelStratifiedKFold(n_splits=n_splits, random_state=seed, shuffle=True).split(df, \
-            df[['grapheme_root', 'vowel_diacritic', 'consonant_diacritic']].values)
+    if split == "MultilabelStratifiedKFold":
+        kf = MultilabelStratifiedKFold(n_splits=n_splits, random_state=seed).split(df, \
+                df[['grapheme_root', 'vowel_diacritic', 'consonant_diacritic']].values)
+    elif split == "StratifiedKFold":
+        kf = StratifiedKFold(n_splits=n_splits, random_state=seed).split(df, \
+                df[['grapheme']].values)
+    elif split == "GroupKFold":
+        # df = shuffle(df, random_state=seed)
+        kf = GroupKFold(n_splits=n_splits).split(df, groups=df[['grapheme_root', 'vowel_diacritic', 'consonant_diacritic']].values)
         
     for fold, (train_idx, valid_idx) in enumerate(kf):
         
         df_train = df.iloc[train_idx]
         df_val = df.iloc[valid_idx]
 
-        df_train.to_csv(save_path + '/split/train_fold_%s_seed_%s.csv'%(fold, seed))
-        df_val.to_csv(save_path + '/split/val_fold_%s_seed_%s.csv'%(fold, seed))
+        df_train.to_csv(save_path + 'split/' + split + '/train_fold_%s_seed_%s.csv'%(fold, seed))
+        df_val.to_csv(save_path + 'split/' + split + '/val_fold_%s_seed_%s.csv'%(fold, seed))
 
     return 
 
@@ -185,7 +178,7 @@ def get_train_val_split(df_path="/media/jionie/my_disk/Kaggle/Bengaliai/input/be
 def get_test_loader(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/input/bengaliai-cv19/",
                     df_path="/media/jionie/my_disk/Kaggle/Bengaliai/input/bengaliai-cv19/test.csv", \
                     batch_size=4, \
-                    test_trainsform=test_transform):
+                    test_transform=test_transform):
     
     test_df = pd.read_csv(df_path)
     test_df = test_df.fillna(0)
@@ -272,7 +265,7 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
                                consonant_diacritic_labels_dict=img_class_dict_consonant_diacritic, \
                                grapheme_labels_dict=img_class_dict_grapheme)
     val_loader = torch.utils.data.DataLoader(ds_val, batch_size=val_batch_size, shuffle=False, num_workers=num_workers, drop_last=False)
-    val_loader.df = val_df
+    val_loader.num = len(val_df)
 
     return train_loader, val_loader
 
@@ -353,12 +346,12 @@ def test_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inp
 def test_test_loader(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/input/bengaliai-cv19/",
                     df_path="/media/jionie/my_disk/Kaggle/Bengaliai/input/bengaliai-cv19/test.csv", \
                     batch_size=4, \
-                    test_trainsform=test_transform):
+                    test_transform=test_transform):
 
     test_loader = get_test_loader(data_path=data_path, \
                             df_path=df_path, \
                             batch_size=batch_size, \
-                            test_trainsform=test_trainsform)
+                            test_transform=test_transform)
 
     for image in test_loader:
         print("------------------------testing test loader----------------------")
@@ -377,11 +370,11 @@ if __name__ == "__main__":
                         save_path=args.save_path, \
                         n_splits=args.n_splits, \
                         seed=args.seed, \
-                        split="MultilabelStratifiedKFold")
+                        split=args.split)
     
      
-    data_df_train = args.save_path + '/split/train_fold_%s_seed_%s.csv'%(args.test_fold, args.seed)
-    data_df_val = args.save_path + '/split/val_fold_%s_seed_%s.csv'%(args.test_fold, args.seed)
+    data_df_train = args.save_path + 'split/' + args.split + '/train_fold_%s_seed_%s.csv'%(args.test_fold, args.seed)
+    data_df_val = args.save_path + 'split/' + args.split + '/val_fold_%s_seed_%s.csv'%(args.test_fold, args.seed)
 
     # test train val dataloader
     test_train_val_loaders(data_path=args.data_path, \
@@ -399,4 +392,4 @@ if __name__ == "__main__":
     test_test_loader(data_path=args.test_data_path,
                     df_path=args.test_df_path, \
                     batch_size=args.batch_size, \
-                    test_trainsform=test_transform)
+                    test_transform=test_transform)

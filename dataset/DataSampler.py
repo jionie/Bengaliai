@@ -102,3 +102,6 @@ class BalanceSampler(torch.utils.data.Sampler):
                     is_loop = False
                     break
         return iter(index)
+    
+    def __len__(self):
+        return self.length
