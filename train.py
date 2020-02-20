@@ -479,17 +479,42 @@ def training(
                 grapheme_prediction  = torch.argmax(grapheme_prediction, 1)
                 grapheme_prediction = torch.squeeze(grapheme_prediction.float())
                 
-
+            # calculate traing result without cutmix, otherwise prediction is not related to image
+            with torch.no_grad():
+                
+                predictions_no_cutmix = model(image)  
+            
+                grapheme_root_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[0])
+                vowel_diacritic_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[1])
+                consonant_diacritic_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[2])
+                grapheme_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[3])
+                
+                # calculate statistics
+                if ((loss_type == "bce") or (loss_type == "focal")):
+                    # prediction = torch.sigmoid(prediction)
+                    
+                    grapheme_root_prediction_no_cutmix  = torch.argmax(grapheme_root_prediction_no_cutmix, 1)
+                    grapheme_root_prediction_no_cutmix = torch.squeeze(grapheme_root_prediction_no_cutmix.float())
+                    
+                    vowel_diacritic_prediction_no_cutmix  = torch.argmax(vowel_diacritic_prediction_no_cutmix, 1)
+                    vowel_diacritic_prediction_no_cutmix = torch.squeeze(vowel_diacritic_prediction_no_cutmix.float())
+                    
+                    consonant_diacritic_prediction_no_cutmix  = torch.argmax(consonant_diacritic_prediction_no_cutmix, 1)
+                    consonant_diacritic_prediction_no_cutmix = torch.squeeze(consonant_diacritic_prediction_no_cutmix.float())
+                    
+                    grapheme_prediction_no_cutmix  = torch.argmax(grapheme_prediction_no_cutmix, 1)
+                    grapheme_prediction_no_cutmix = torch.squeeze(grapheme_prediction_no_cutmix.float())
+            
             
             grapheme_root = grapheme_root.cpu().detach().numpy()
             vowel_diacritic = vowel_diacritic.cpu().detach().numpy()
             consonant_diacritic = consonant_diacritic.cpu().detach().numpy()
             grapheme = grapheme.cpu().detach().numpy()
             
-            grapheme_root_prediction = grapheme_root_prediction.cpu().detach().numpy()
-            vowel_diacritic_prediction = vowel_diacritic_prediction.cpu().detach().numpy()
-            consonant_diacritic_prediction = consonant_diacritic_prediction.cpu().detach().numpy()
-            grapheme_prediction = grapheme_prediction.cpu().detach().numpy()
+            grapheme_root_prediction = grapheme_root_prediction_no_cutmix.cpu().detach().numpy()
+            vowel_diacritic_prediction = vowel_diacritic_prediction_no_cutmix.cpu().detach().numpy()
+            consonant_diacritic_prediction = consonant_diacritic_prediction_no_cutmix.cpu().detach().numpy()
+            grapheme_prediction = grapheme_prediction_no_cutmix.cpu().detach().numpy()
             
             
             l = np.array([loss.item() * batch_size])
