@@ -64,21 +64,9 @@ IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
 ############################## Prapare Augmentation
 train_transform = albumentations.Compose([
     albumentations.Resize(IMAGE_HEIGHT, IMAGE_WIDTH),
-    albumentations.RandomRotate90(p=0.5),
-    albumentations.Transpose(p=0.5),
-    albumentations.Flip(p=0.5),
+    albumentations.Rotate(limit=45, p=0.5),
     RandomAugMix(severity=3, width=3, alpha=1., p=1.),
-    albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=45, border_mode=1, p=0.5),
-    AT.ToTensor(),
-    ])
-
-train_transform_advprop = albumentations.Compose([
-    albumentations.Resize(IMAGE_HEIGHT, IMAGE_WIDTH),
-    albumentations.RandomRotate90(p=0.5),
-    albumentations.Transpose(p=0.5),
-    albumentations.Flip(p=0.5),
-    RandomAugMix(severity=3, width=3, alpha=1., p=1.),
-    albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.15, rotate_limit=45, border_mode=1, p=0.5),
+    albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=5, border_mode=1, p=0.5),
     AT.ToTensor(),
     ])
 
@@ -107,16 +95,19 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         self.labeled = labeled
         self.transform = transform
         self.image_df = pd.concat([pd.read_parquet(os.path.join(data_path, f'train_image_data_{i}.parquet')) for i in range(4)]).reindex()
-        self.uid = self.image_df['image_id'].values
-        self.image = self.image_df.drop('image_id', axis=1).values.astype(np.uint8)
+        self.image_df.iloc[:, 1:] = self.image_df.iloc[:, 1:].astype(np.uint8)
+        if self.labeled:
+            self.uid = self.df['image_id'].values
+        else:
+            # we don't need to spilt
+            self.uid = self.image_df['image_id'].values
+        # self.image = self.image_df.drop('image_id', axis=1).values.astype(np.uint8)
     
         self.grapheme_root_labels_dict = grapheme_root_labels_dict
         self.vowel_diacritic_labels_dict = vowel_diacritic_labels_dict
         self.consonant_diacritic_labels_dict = consonant_diacritic_labels_dict
         self.grapheme_labels_dict = grapheme_labels_dict
-        #128547
-        del self.image_df
-        gc.collect()
+        
 
     def __len__(self):
         return len(self.df)
@@ -124,7 +115,8 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         
         image_id = self.uid[idx]
-        image = self.image[idx].copy().reshape(137, 236)
+        # image = self.image[idx].copy().reshape(137, 236)
+        image = self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(137, 236)
         image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2)
         image = image.astype(np.float32)/255
         image = np.transpose(image, (2, 0, 1))

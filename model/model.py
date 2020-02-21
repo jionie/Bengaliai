@@ -64,11 +64,22 @@ class BengaliaiNet(nn.Module):
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b8')
         else:
             raise NotImplementedError
+        
+        modules = {}
+        for name, module in self.basemodel.named_modules():
+            if(isinstance(module, nn.MaxPool2d)):
+                module.kernel_size = 2
+                module.padding = 0
+                modules[name] = module
             
             
         self.avg_pooling = GeM()
     
-        self.dropout = nn.Dropout(p=0.2)
+        # self.dropout = nn.Dropout(0.2)
+    
+        self.dropouts = nn.ModuleList([
+            nn.Dropout(0.5) for _ in range(5)
+        ])
         
         self.logits = nn.ModuleList(
             [ nn.Linear(2048, c) for c in self.n_classes ]
@@ -109,7 +120,15 @@ class BengaliaiNet(nn.Module):
         
         x = self.avg_pooling(x)
         x = x.view(bs, -1)
-        x = self.dropout(x)
+        
+        for j, dropout in enumerate(self.dropouts):
+            
+            if j == 0:
+                x = dropout(x) / len(self.dropouts)
+            else:
+                x += dropout(x) / len(self.dropouts)
+        
+        # x = self.dropout(x)
         
         logits = [ l(x) for l in self.logits ]
         
