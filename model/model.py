@@ -65,15 +65,17 @@ class BengaliaiNet(nn.Module):
         else:
             raise NotImplementedError
         
-        modules = {}
-        for name, module in self.basemodel.named_modules():
-            if(isinstance(module, nn.MaxPool2d)):
-                module.kernel_size = 2
-                module.padding = 0
-                modules[name] = module
+        # modules = {}
+        # for name, module in self.basemodel.named_modules():
+        #     if(isinstance(module, nn.MaxPool2d)):
+        #         module.kernel_size = 2
+        #         module.padding = 0
+        #         modules[name] = module
             
             
-        self.avg_pooling = GeM()
+        self.avg_poolings = nn.ModuleList([
+            GeM() for _ in range(4)
+        ])
     
         # self.dropout = nn.Dropout(0.2)
     
@@ -118,19 +120,25 @@ class BengaliaiNet(nn.Module):
         else:
             raise NotImplementedError
         
-        x = self.avg_pooling(x)
-        x = x.view(bs, -1)
+        # 4 tasks
+        logits = []
         
-        for j, dropout in enumerate(self.dropouts):
+        for i, avg_pooling in enumerate(self.avg_poolings):
+            logit = avg_pooling(x)
+            logit = logit.view(bs, -1)
             
-            if j == 0:
-                x = dropout(x) / len(self.dropouts)
-            else:
-                x += dropout(x) / len(self.dropouts)
+            for j, dropout in enumerate(self.dropouts):
+                
+                if j == 0:
+                    logit = dropout(logit) / len(self.dropouts)
+                else:
+                    logit += dropout(logit) / len(self.dropouts)
         
-        # x = self.dropout(x)
+            # logit = self.dropout(logit)
+            
+            logits.append(self.logits[i](logit))
         
-        logits = [ l(x) for l in self.logits ]
+        # logits = [ l(x) for l in self.logits ]
         
         return logits
     

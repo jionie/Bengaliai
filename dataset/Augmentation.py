@@ -3,8 +3,75 @@ import albumentations
 from PIL import Image, ImageOps, ImageEnhance
 from albumentations.core.transforms_interface import ImageOnlyTransform
 from albumentations.augmentations import functional as F
+import cv2
+from skimage.transform import AffineTransform, warp
 
 
+"""
+From https://www.kaggle.com/corochann/deep-learning-cnn-with-chainer-lb-0-99700
+"""
+def affine_image(img):
+    """
+
+    Args:
+        img: (h, w) or (1, h, w)
+
+    Returns:
+        img: (h, w)
+    """
+    # ch, h, w = img.shape
+    # img = img / 255.
+    if img.ndim == 3:
+        img = img[0]
+
+    # --- scale ---
+    min_scale = 0.8
+    max_scale = 1.2
+    sx = np.random.uniform(min_scale, max_scale)
+    sy = np.random.uniform(min_scale, max_scale)
+
+    # --- rotation ---
+    max_rot_angle = 7
+    rot_angle = np.random.uniform(-max_rot_angle, max_rot_angle) * np.pi / 180.
+
+    # --- shear ---
+    max_shear_angle = 10
+    shear_angle = np.random.uniform(-max_shear_angle, max_shear_angle) * np.pi / 180.
+
+    # --- translation ---
+    max_translation = 4
+    tx = np.random.randint(-max_translation, max_translation)
+    ty = np.random.randint(-max_translation, max_translation)
+
+    tform = AffineTransform(scale=(sx, sy), rotation=rot_angle, shear=shear_angle,
+                            translation=(tx, ty))
+    transformed_image = warp(img, tform)
+    assert transformed_image.ndim == 2
+    return transformed_image
+
+
+def crop_char_image(image, threshold=5./255.):
+    assert image.ndim == 2
+    is_black = image > threshold
+
+    is_black_vertical = np.sum(is_black, axis=0) > 0
+    is_black_horizontal = np.sum(is_black, axis=1) > 0
+    left = np.argmax(is_black_horizontal)
+    right = np.argmax(is_black_horizontal[::-1])
+    top = np.argmax(is_black_vertical)
+    bottom = np.argmax(is_black_vertical[::-1])
+    height, width = image.shape
+    cropped_image = image[left:height - right, top:width - bottom]
+    return cropped_image
+
+
+def resize(image, size=(128, 128)):
+    return cv2.resize(image, size)
+
+
+"""
+From https://www.kaggle.com/haqishen/augmix-based-on-albumentations
+"""
 def int_parameter(level, maxval):
     """Helper function to scale `val` between 0 and maxval .
     Args:
@@ -117,14 +184,14 @@ def sharpness(pil_img, level):
     level = float_parameter(sample_level(level), 1.8) + 0.1
     return ImageEnhance.Sharpness(pil_img).enhance(level)
 
-
+# solarize will have bug
 augmentations = [
-    autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y,
+    autocontrast, equalize, posterize, rotate, shear_x, shear_y,
     translate_x, translate_y
 ]
 
 augmentations_all = [
-    autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y,
+    autocontrast, equalize, posterize, rotate, shear_x, shear_y,
     translate_x, translate_y, color, contrast, brightness, sharpness
 ]
 
@@ -133,10 +200,10 @@ def normalize(image):
     return image - 127
 
 def apply_op(image, op, severity):
-    #   image = np.clip(image, 0, 255)
-    pil_img = Image.fromarray(image)  # Convert to PIL.Image
+    image = np.clip(image, 0, 255)
+    pil_img = Image.fromarray(image, mode="RGB")  # Convert to PIL.Image
     pil_img = op(pil_img, severity)
-    return np.asarray(pil_img)
+    return np.asarray(pil_img).astype(np.float32)
 
 def augment_and_mix(image, severity=3, width=3, depth=-1, alpha=1.):
     """Perform AugMix augmentations and compute mixture.
@@ -150,6 +217,7 @@ def augment_and_mix(image, severity=3, width=3, depth=-1, alpha=1.):
     Returns:
     mixed: Augmented and mixed image.
     """
+    image = np.float32(image)
     ws = np.float32(
       np.random.dirichlet([alpha] * width))
     m = np.float32(np.random.beta(alpha, alpha))
@@ -187,4 +255,34 @@ class RandomAugMix(ImageOnlyTransform):
             self.depth,
             self.alpha
         )
+        return image
+    
+"""
+From https://www.kaggle.com/haqishen/augmix-based-on-albumentations
+""" 
+def add_gaussian_noise(x, sigma):
+    x += np.random.randn(*x.shape) * sigma
+    x = np.clip(x, 0., 1.)
+    return x
+
+
+def _evaluate_ratio(ratio):
+    if ratio <= 0.:
+        return False
+    return np.random.uniform() < ratio
+
+
+def apply_aug(aug, image):
+    return aug(image=image)['image']
+        
+        
+############################################################ self define class
+class CropCharImage(ImageOnlyTransform):
+    
+    def __init__(self, threshold=20, always_apply=False, p=0.5):
+        super().__init__(always_apply, p)
+        self.threshold = threshold
+
+    def apply(self, image, **params):
+        image = crop_char_image(image, threshold=self.threshold)
         return image

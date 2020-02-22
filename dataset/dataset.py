@@ -59,21 +59,26 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 224, 224
 
 
 ############################## Prapare Augmentation
 train_transform = albumentations.Compose([
-    albumentations.Resize(IMAGE_HEIGHT, IMAGE_WIDTH),
-    albumentations.Rotate(limit=45, p=0.5),
-    RandomAugMix(severity=3, width=3, alpha=1., p=1.),
-    albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=5, border_mode=1, p=0.5),
-    AT.ToTensor(),
+    CropCharImage(threshold=15, p=0.5),
+    albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
+    albumentations.Rotate(limit=20, p=0.5),
+    albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.5),
+    albumentations.OneOf([
+        albumentations.MotionBlur(blur_limit=5, p=1.0),
+        albumentations.Blur(blur_limit=5, p=1.0),
+        albumentations.GaussianBlur(blur_limit=5, p=1.0)
+    ], p=0.5), 
+    albumentations.GridDistortion(distort_limit=0.1, p=0.5), 
     ])
 
 
 test_transform = albumentations.Compose([
-    albumentations.Resize(IMAGE_HEIGHT, IMAGE_WIDTH),
-    AT.ToTensor(),
+    albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
     ])
 
 
@@ -115,11 +120,20 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         
         image_id = self.uid[idx]
-        # image = self.image[idx].copy().reshape(137, 236)
-        image = self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(137, 236)
-        image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2)
-        image = image.astype(np.float32)/255
-        image = np.transpose(image, (2, 0, 1))
+        # image = self.image[idx].copy().reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
+        image = \
+            self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
+        
+        if np.random.uniform() < 0.5:
+            image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2).astype('uint8')
+            image = augment_and_mix(image, severity=1, width=1, depth=-1, alpha=1.)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        if not (self.transform is None):
+            image = self.transform(image=np.float32(image))['image']
+            
+        image = np.repeat(np.expand_dims(image, axis=0), 3, axis=0).astype(np.float32)
+        image = image / 255
         
         if self.labeled:
             
