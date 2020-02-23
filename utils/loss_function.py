@@ -4,40 +4,6 @@ import torch.nn as nn
 import numpy as np
 import torch
 
-class MSELoss(nn.Module):
-    def __init__(self, gamma=2):
-        super().__init__()
-        self.gamma = gamma
-        self.MSELoss = nn.MSELoss()
-
-    def forward(self, logit, target):
-        target = target.float()
-
-        loss = self.MSELoss(torch.sigmoid(logit), target)
-
-        logpt = F.log_softmax(loss, dim=0)
-
-        invprobs = torch.exp(logpt)
-
-        loss = (invprobs ** self.gamma) * loss
-        if len(loss.size())==2:
-            loss = loss.sum(dim=1)
-
-        return loss.mean()
-
-class MSEBCELoss(nn.Module):
-    def __init__(self, gamma=2):
-        super().__init__()
-        self.gamma = gamma
-        self.MSELoss = MSELoss()
-        self.NNMSELoss = nn.MSELoss()
-        self.BCELoss = nn.BCEWithLogitsLoss()
-
-    def forward(self, logit, target):
-        target = target.float()
-        loss = self.NNMSELoss(logit, target) * 10 + self.BCELoss(logit, target)
-
-        return loss.mean()
 
 class SoftDiceLoss_binary(nn.Module):
     def __init__(self):
@@ -127,26 +93,44 @@ class LovaszLoss(nn.Module):
         return lovasz_hinge_flat(logits, labels, self.ignore_index)
     
 
+# class FocalLoss(nn.Module):
+#     __name__ = 'FocalLoss'
+#     def __init__(self, alpha=0.25, gamma=2, weight=None, ignore_index=None):
+#         super(FocalLoss, self).__init__()
+#         self.alpha = alpha
+#         self.gamma = gamma
+#         self.weight = weight
+#         self.ignore_index = ignore_index
+#         self.bce_fn = nn.BCEWithLogitsLoss(weight=self.weight)
+
+#     def forward(self, preds, labels):
+#         if self.ignore_index is not None:
+#             mask = labels != self.ignore_index
+#             labels = labels[mask]
+#             preds = preds[mask]
+
+#         logpt = -self.bce_fn(preds, labels)
+#         pt = torch.exp(logpt)
+#         loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
+#         return loss
+    
+    
 class FocalLoss(nn.Module):
-    __name__ = 'FocalLoss'
-    def __init__(self, alpha=0.25, gamma=2, weight=None, ignore_index=None):
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
+    def __init__(self, gamma=2):
+        super().__init__()
         self.gamma = gamma
-        self.weight = weight
-        self.ignore_index = ignore_index
-        self.bce_fn = nn.BCEWithLogitsLoss(weight=self.weight)
 
-    def forward(self, preds, labels):
-        if self.ignore_index is not None:
-            mask = labels != self.ignore_index
-            labels = labels[mask]
-            preds = preds[mask]
+    def forward(self, logit, target):
+        target = target.float()
+        max_val = (-logit).clamp(min=0)
+        loss = logit - logit * target + max_val + \
+               ((-max_val).exp() + (-logit - max_val).exp()).log()
 
-        logpt = -self.bce_fn(preds, labels)
-        pt = torch.exp(logpt)
-        loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
-        return loss
+        invprobs = F.logsigmoid(-logit * (target * 2.0 - 1.0))
+        loss = (invprobs * self.gamma).exp() * loss
+        if len(loss.size())==2:
+            loss = loss.sum(dim=1)
+        return loss.mean()
 
 
 
