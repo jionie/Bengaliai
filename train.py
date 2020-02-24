@@ -90,9 +90,11 @@ parser.add_argument('--weight_grapheme_root', type=float, default=2, required=Fa
 parser.add_argument('--weight_vowel_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_consonant_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_grapheme', type=float, default=0.2, required=False, help="specify weight of loss for grapheme")
-parser.add_argument('--beta', default=1, type=float,
+parser.add_argument('--beta', default=0.4, type=float,
                     help='hyperparameter beta')
-parser.add_argument('--cutmix_prob', default=0.25, type=float,
+parser.add_argument('--alpha', default=0.4, type=float,
+                    help='hyperparameter beta')
+parser.add_argument('--cutmix_prob', default=0.5, type=float,
                     help='cutmix probability')
 
 
@@ -144,6 +146,7 @@ def training(
             loss_type,
             early_stopping, 
             beta, 
+            alpha,
             cutmix_prob
             ):
     
@@ -315,13 +318,16 @@ def training(
       
         
         # update lr and start from start_epoch  
-        if ((epoch > 1) and (not lr_scheduler_each_iter)):
+        if lr_scheduler_each_iter:
+            if (epoch < start_epoch):
+                for _ in range(len(train_data_loader)):
+                    scheduler.step()
+                continue
+                
+        else:
             scheduler.step()
-           
-        if (epoch < start_epoch):
-            if (lr_scheduler_each_iter):
-                scheduler.step(len(train_data_loader))
-            continue
+            if (epoch < start_epoch):
+                continue
         
         log.write("Epoch%s\n" % epoch)
         log.write('\n')
@@ -416,16 +422,39 @@ def training(
                     weight_consonant_diacritic * criterion(consonant_diacritic_prediction, consonant_diacritic_b) * (1 - lam)
                     
             else:
+                # predictions = model(image)  
+            
+                # grapheme_root_prediction = torch.squeeze(predictions[0])
+                # vowel_diacritic_prediction = torch.squeeze(predictions[1])
+                # consonant_diacritic_prediction = torch.squeeze(predictions[2])
+            
+        
+                # loss = weight_grapheme_root * criterion(grapheme_root_prediction, grapheme_root) + \
+                #     weight_vowel_diacritic * criterion(vowel_diacritic_prediction, vowel_diacritic) + \
+                #     weight_consonant_diacritic * criterion(consonant_diacritic_prediction, consonant_diacritic)
+                    
+                indices = torch.randperm(image.size(0))
+                shuffled_image = image[indices]
+                shuffled_grapheme_root = grapheme_root[indices]
+                shuffled_vowel_diacritic = vowel_diacritic[indices]
+                shuffled_consonant_diacritic = consonant_diacritic[indices]
+                
+                lam = np.random.beta(alpha, alpha)
+                image = image * lam + shuffled_image * (1 - lam)
+                
                 predictions = model(image)  
             
                 grapheme_root_prediction = torch.squeeze(predictions[0])
                 vowel_diacritic_prediction = torch.squeeze(predictions[1])
                 consonant_diacritic_prediction = torch.squeeze(predictions[2])
-            
+                
+                loss = weight_grapheme_root * criterion(grapheme_root_prediction, grapheme_root) * lam + \
+                    weight_grapheme_root * criterion(grapheme_root_prediction, shuffled_grapheme_root) * (1 - lam) + \
+                    weight_vowel_diacritic * criterion(vowel_diacritic_prediction, vowel_diacritic) * lam + \
+                    weight_vowel_diacritic * criterion(vowel_diacritic_prediction, shuffled_vowel_diacritic) * (1- lam) + \
+                    weight_consonant_diacritic * criterion(consonant_diacritic_prediction, consonant_diacritic) * lam + \
+                    weight_consonant_diacritic * criterion(consonant_diacritic_prediction, shuffled_consonant_diacritic) * (1 - lam)
         
-                loss = weight_grapheme_root * criterion(grapheme_root_prediction, grapheme_root) + \
-                    weight_vowel_diacritic * criterion(vowel_diacritic_prediction, vowel_diacritic) + \
-                    weight_consonant_diacritic * criterion(consonant_diacritic_prediction, consonant_diacritic)
             
             # use apex
             with amp.scale_loss(loss/accumulation_steps, optimizer) as scaled_loss:
@@ -741,6 +770,7 @@ if __name__ == "__main__":
             args.loss, \
             args.early_stopping, \
             args.beta, \
+            args.alpha, \
             args.cutmix_prob)
 
     gc.collect()

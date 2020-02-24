@@ -186,8 +186,8 @@ def sharpness(pil_img, level):
 
 # solarize will have bug
 augmentations = [
-    autocontrast, equalize, posterize, rotate, shear_x, shear_y,
-    translate_x, translate_y
+    autocontrast, rotate, shear_x, shear_y,
+    translate_x, translate_y, equalize, posterize, solarize
 ]
 
 augmentations_all = [

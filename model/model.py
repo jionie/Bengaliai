@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from pytorchcv.model_provider import get_model as ptcv_get_model
 from efficientnet_pytorch import EfficientNet
 
+from apex import amp
+
 
 
 def gem(x, p=3, eps=1e-6):
@@ -77,11 +79,11 @@ class BengaliaiNet(nn.Module):
             GeM() for _ in range(len(self.n_classes))
         ])
     
-        # self.dropout = nn.Dropout(0.2)
+        self.dropout = nn.Dropout(0.2)
     
-        self.dropouts = nn.ModuleList([
-            nn.Dropout(0.5) for _ in range(5)
-        ])
+        # self.dropouts = nn.ModuleList([
+        #     nn.Dropout(0.5) for _ in range(5)
+        # ])
         
         self.logits = nn.ModuleList(
             [ nn.Linear(2048, c) for c in self.n_classes ]
@@ -127,16 +129,18 @@ class BengaliaiNet(nn.Module):
             logit = avg_pooling(x)
             logit = logit.view(bs, -1)
             
-            for j, dropout in enumerate(self.dropouts):
+            # for j, dropout in enumerate(self.dropouts):
                 
-                if j == 0:
-                    logit = dropout(logit) / len(self.dropouts)
-                else:
-                    logit += dropout(logit) / len(self.dropouts)
-        
-            # logit = self.dropout(logit)
+            #     if j == 0:
+            #         logit = dropout(logit) / len(self.dropouts)
+            #     else:
+            #         logit += dropout(logit) / len(self.dropouts)
             
+            # logits.append(self.logits[i](logit))
+        
+            logit = self.dropout(logit)
             logits.append(self.logits[i](logit))
+        
         
         # logits = [ l(x) for l in self.logits ]
         
@@ -148,8 +152,9 @@ class BengaliaiNet(nn.Module):
 def test_Net():
     print("------------------------testing Net----------------------")
 
-    x = torch.tensor(np.random.random((96, 3, 137, 236)).astype(np.float32)).cuda()
+    x = torch.tensor(np.random.random((432, 3, 128, 128)).astype(np.float32)).cuda()
     model = BengaliaiNet().cuda()
+    model = amp.initialize(model, opt_level="O1")
 
     logits = model(x)
     print(logits[0], logits[1], logits[2])

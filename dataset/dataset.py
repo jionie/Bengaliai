@@ -59,21 +59,46 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 137, 236
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 128, 128
+
+
+def bbox(img):
+    rows = np.any(img, axis=1)
+    cols = np.any(img, axis=0)
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
+    return rmin, rmax, cmin, cmax
+
+def crop_resize(img0, size=IMAGE_HEIGHT_RESIZE, pad=16):
+    #crop a box around pixels large than the threshold 
+    #some images contain line at the sides
+    ymin,ymax,xmin,xmax = bbox(img0[5:-5,5:-5] > 80)
+    #cropping may cut too much, so we need to add it back
+    xmin = xmin - 13 if (xmin > 13) else 0
+    ymin = ymin - 10 if (ymin > 10) else 0
+    xmax = xmax + 13 if (xmax < IMAGE_WIDTH - 13) else IMAGE_WIDTH
+    ymax = ymax + 10 if (ymax < IMAGE_HEIGHT - 10) else IMAGE_HEIGHT
+    img = img0[ymin:ymax,xmin:xmax]
+    #remove lo intensity pixels as noise
+    img[img < 28] = 0
+    lx, ly = xmax-xmin,ymax-ymin
+    l = max(lx,ly) + pad
+    #make sure that the aspect ratio is kept in rescaling
+    img = np.pad(img, [((l-ly)//2,), ((l-lx)//2,)], mode='constant')
+    return cv2.resize(img,(size,size))
 
 
 ############################## Prapare Augmentation
 train_transform = albumentations.Compose([
-    # CropCharImage(threshold=15, p=0.5),
     albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
-    albumentations.Rotate(limit=20, p=0.5),
+    albumentations.Rotate(limit=30, p=0.5),
     albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.25),
     albumentations.OneOf([
         albumentations.MotionBlur(blur_limit=5, p=1.0),
         albumentations.Blur(blur_limit=5, p=1.0),
         albumentations.GaussianBlur(blur_limit=5, p=1.0)
-    ], p=0.25), 
-    albumentations.GridDistortion(distort_limit=0.1, p=0.25), 
+    ], p=0.3), 
+    albumentations.GridDistortion(distort_limit=0.3, p=0.5), 
     ])
 
 
@@ -123,17 +148,20 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         # image = self.image[idx].copy().reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
         image = \
             self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
+            
+        image = 255 - image
+        image = crop_resize(image)
         
-        if np.random.uniform() < 0.5:
-            image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2).astype('uint8')
-            image = augment_and_mix(image, severity=1, width=1, depth=-1, alpha=1.)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # if np.random.uniform() < 0.5:
+        #     image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2).astype('uint8')
+        #     image = augment_and_mix(image, severity=1, width=1, depth=-1, alpha=1.)
+        #     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         if not (self.transform is None):
             image = self.transform(image=np.float32(image))['image']
             
         image = np.repeat(np.expand_dims(image, axis=0), 3, axis=0).astype(np.float32)
-        image = image / 255
+        image = image / np.max(image)
         
         if self.labeled:
             
