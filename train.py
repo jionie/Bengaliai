@@ -70,7 +70,7 @@ parser.add_argument('--Balanced', type=str, default="BalanceSampler", \
     required=False, help='specify the DataSampler')
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
 parser.add_argument('--optimizer', type=str, default='AdamW', required=False, help='specify the optimizer')
-parser.add_argument("--lr_scheduler", type=str, default='WarmupCosineAnealingWithHardRestart', required=False, help="specify the lr scheduler")
+parser.add_argument("--lr_scheduler", type=str, default='WarmupCosineAnealing', required=False, help="specify the lr scheduler")
 parser.add_argument("--warmup_proportion",  type=float, default=0.01, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
 parser.add_argument("--lr", type=float, default=4e-3, required=False, help="specify the initial learning rate for training")
@@ -101,6 +101,7 @@ parser.add_argument('--cutmix_prob', default=0.5, type=float,
 NUM_CLASS=1
 WEIGHT_DECAY = 0.01
 NUM_CLASSES = [168, 11, 7, 1295]
+WEIGHT_LOSS = [2, 1, 1, 1]
 
 ############################################################################## seed all
 SEED = 42
@@ -201,7 +202,7 @@ def training(
                 state_dict[key] = pretrain_state_dict[key]
             except:
                 print(key)
-        model.load_state_dict(state_dict, strict=False)
+        model.load_state_dict(state_dict)
         
         return model
 
@@ -213,6 +214,7 @@ def training(
     model = model.cuda()
     
     if load_pretrain:
+        print("Load pretrain model")
         model = load(model, checkpoint_filepath)
 
     ############################################################################### optimizer
