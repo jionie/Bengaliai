@@ -345,6 +345,7 @@ def training(
 
             # set input to cuda mode
             image = image.cuda()
+            image_copy = image.clone()
             grapheme_root    = grapheme_root.cuda().float()
             vowel_diacritic    = vowel_diacritic.cuda().float()
             consonant_diacritic    = consonant_diacritic.cuda().float()
@@ -484,7 +485,7 @@ def training(
             # calculate traing result without cutmix, otherwise prediction is not related to image
             with torch.no_grad():
                 
-                predictions_no_cutmix = model(image)  
+                predictions_no_cutmix = model(image_copy)  
             
                 grapheme_root_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[0])
                 vowel_diacritic_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[1])
