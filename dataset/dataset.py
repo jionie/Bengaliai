@@ -59,7 +59,7 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 224, 224
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 137, 236
 
 
 ############################## Prapare Augmentation

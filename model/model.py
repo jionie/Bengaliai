@@ -27,7 +27,7 @@ class GeM(nn.Module):
 
 ############################################ Define Net Class
 class BengaliaiNet(nn.Module):
-    def __init__(self, model_type="seresnext50", n_classes=[168, 11, 7, 1295]):
+    def __init__(self, model_type="seresnext50", n_classes=[168, 11, 7]):
         super(BengaliaiNet, self).__init__()
         self.model_type = model_type
         self.n_classes = n_classes
@@ -74,7 +74,7 @@ class BengaliaiNet(nn.Module):
             
             
         self.avg_poolings = nn.ModuleList([
-            GeM() for _ in range(4)
+            GeM() for _ in range(len(self.n_classes))
         ])
     
         # self.dropout = nn.Dropout(0.2)
@@ -152,7 +152,7 @@ def test_Net():
     model = BengaliaiNet().cuda()
 
     logits = model(x)
-    print(logits[0], logits[1], logits[2], logits[3])
+    print(logits[0], logits[1], logits[2])
     print("------------------------testing Net finished----------------------")
 
     return
