@@ -64,16 +64,16 @@ IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 137, 236
 
 ############################## Prapare Augmentation
 train_transform = albumentations.Compose([
-    CropCharImage(threshold=15, p=0.5),
+    # CropCharImage(threshold=15, p=0.5),
     albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
     albumentations.Rotate(limit=20, p=0.5),
-    albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.5),
+    albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.25),
     albumentations.OneOf([
         albumentations.MotionBlur(blur_limit=5, p=1.0),
         albumentations.Blur(blur_limit=5, p=1.0),
         albumentations.GaussianBlur(blur_limit=5, p=1.0)
-    ], p=0.5), 
-    albumentations.GridDistortion(distort_limit=0.1, p=0.5), 
+    ], p=0.25), 
+    albumentations.GridDistortion(distort_limit=0.1, p=0.25), 
     ])
 
 

@@ -92,7 +92,7 @@ parser.add_argument('--weight_consonant_diacritic', type=float, default=1, requi
 parser.add_argument('--weight_grapheme', type=float, default=0.2, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--beta', default=1, type=float,
                     help='hyperparameter beta')
-parser.add_argument('--cutmix_prob', default=0.5, type=float,
+parser.add_argument('--cutmix_prob', default=0.25, type=float,
                     help='cutmix probability')
 
 
@@ -345,6 +345,7 @@ def training(
 
             # set input to cuda mode
             image = image.cuda()
+            image_copy = image.clone()
             grapheme_root    = grapheme_root.cuda().float()
             vowel_diacritic    = vowel_diacritic.cuda().float()
             consonant_diacritic    = consonant_diacritic.cuda().float()
@@ -469,7 +470,7 @@ def training(
             # calculate traing result without cutmix, otherwise prediction is not related to image
             with torch.no_grad():
                 
-                predictions_no_cutmix = model(image)  
+                predictions_no_cutmix = model(image_copy)  
             
                 grapheme_root_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[0])
                 vowel_diacritic_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[1])
