@@ -25,6 +25,13 @@ class GeM(nn.Module):
         return gem(x, p=self.p, eps=self.eps)       
     def __repr__(self):
         return self.__class__.__name__ + '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + ', ' + 'eps=' + str(self.eps) + ')'
+    
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+        
+    def forward(self, x):
+        return x
 
 
 ############################################ Define Net Class
@@ -36,16 +43,16 @@ class BengaliaiNet(nn.Module):
         
         if model_type == "ResNet34":
             self.basemodel = ptcv_get_model("resnet34", pretrained=True)
-            self.basemodel.features.final_pool = nn.AvgPool2d(kernel_size=1, stride=1)
+            self.basemodel.features.final_pool = Identity()
         elif model_type == "seresnext50":
             self.basemodel = ptcv_get_model("seresnext50_32x4d", pretrained=True)
-            self.basemodel.features.final_pool = nn.AvgPool2d(kernel_size=1, stride=1)
+            self.basemodel.features.final_pool = Identity()
         elif model_type == "seresnext101":
             self.basemodel = ptcv_get_model("seresnext101_32x4d", pretrained=True)
-            self.basemodel.features.final_pool = nn.AvgPool2d(kernel_size=1, stride=1)
+            self.basemodel.features.final_pool = Identity()
         elif model_type == "senet154":
             self.basemodel = ptcv_get_model("senet154", pretrained=True)
-            self.basemodel.features.final_pool = nn.AvgPool2d(kernel_size=1, stride=1)
+            self.basemodel.features.final_pool = Identity()
         elif model_type == 'efficientnet-b0':
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b0')
         elif model_type == 'efficientnet-b1':
