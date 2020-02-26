@@ -160,37 +160,38 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         #     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         image = np.float32(image)
-            
-        for op in np.random.choice([
-            lambda image : do_identity(image),
-            lambda image : do_random_projective(image, 0.4),
-            lambda image : do_random_perspective(image, 0.4),
-            lambda image : do_random_scale(image, 0.4),
-            lambda image : do_random_rotate(image, 0.4),
-            lambda image : do_random_shear_x(image, 0.5),
-            lambda image : do_random_shear_y(image, 0.4),
-            lambda image : do_random_stretch_x(image, 0.5),
-            lambda image : do_random_stretch_y(image, 0.5),
-            lambda image : do_random_grid_distortion(image, 0.4),
-            lambda image : do_random_custom_distortion1(image, 0.5),
-        ],1):
-            image = op(image)
+        
+        if (self.mode == 'train'):
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_projective(image, 0.4),
+                lambda image : do_random_perspective(image, 0.4),
+                lambda image : do_random_scale(image, 0.4),
+                lambda image : do_random_rotate(image, 0.4),
+                lambda image : do_random_shear_x(image, 0.5),
+                lambda image : do_random_shear_y(image, 0.4),
+                lambda image : do_random_stretch_x(image, 0.5),
+                lambda image : do_random_stretch_y(image, 0.5),
+                lambda image : do_random_grid_distortion(image, 0.4),
+                lambda image : do_random_custom_distortion1(image, 0.5),
+            ],1):
+                image = op(image)
 
-        for op in np.random.choice([
-            lambda image : do_identity(image),
-            lambda image : do_random_erode(image, 0.4),
-            lambda image : do_random_dilate(image, 0.4),
-            lambda image : do_random_sprinkle(image, 0.5),
-            lambda image : do_random_line(image, 0.5),
-        ],1):
-            image = op(image)
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_erode(image, 0.4),
+                lambda image : do_random_dilate(image, 0.4),
+                lambda image : do_random_sprinkle(image, 0.5),
+                lambda image : do_random_line(image, 0.5),
+            ],1):
+                image = op(image)
 
-        for op in np.random.choice([
-            lambda image : do_identity(image),
-            lambda image : do_random_contast(image, 0.5),
-            lambda image : do_random_block_fade(image, 0.5),
-        ],1):
-            image = op(image)
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_contast(image, 0.5),
+                lambda image : do_random_block_fade(image, 0.5),
+            ],1):
+                image = op(image)
         
         if not (self.transform is None):
             
