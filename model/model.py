@@ -29,7 +29,7 @@ class GeM(nn.Module):
 
 ############################################ Define Net Class
 class BengaliaiNet(nn.Module):
-    def __init__(self, model_type="seresnext50", n_classes=[168, 11, 7]):
+    def __init__(self, model_type="seresnext50", n_classes=[168, 11, 7, 1295]):
         super(BengaliaiNet, self).__init__()
         self.model_type = model_type
         self.n_classes = n_classes
@@ -157,7 +157,7 @@ def test_Net():
     model = amp.initialize(model, opt_level="O1")
 
     logits = model(x)
-    print(logits[0], logits[1], logits[2])
+    print(logits[0], logits[1], logits[2], logits[3])
     print("------------------------testing Net finished----------------------")
 
     return

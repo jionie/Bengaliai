@@ -5,6 +5,38 @@ import numpy as np
 import torch
 
 
+class FocalOnehotLoss(nn.Module):
+    __name__ = 'FocalOnehotLoss'
+    def __init__(self, alpha=2):
+        super(FocalOnehotLoss, self).__init__()
+        self.alpha = alpha
+
+    def forward(self, logit, onehot):
+        batch_size = logit.shape[0]
+        probability = F.softmax(logit,1)
+        weight = (1-probability)**self.alpha
+        weight = weight/(onehot*weight).sum().item()*batch_size
+
+        log_probability = -F.log_softmax(logit,1)
+        loss = (log_probability*onehot*weight)
+        loss = loss.sum(1)
+        loss = loss.mean()
+        return loss
+
+
+class CrossEntropyOnehotLoss(nn.Module):
+    __name__ = 'CrossEntropyOnehotLoss'
+    def __init__(self):
+        super(CrossEntropyOnehotLoss, self).__init__()
+
+    def forward(self, logit, onehot):
+        log_probability = -F.log_softmax(logit,1)
+        loss = (log_probability*onehot)
+        loss = loss.sum(1)
+        loss = loss.mean()
+        return loss
+
+
 class SoftDiceLoss_binary(nn.Module):
     def __init__(self):
         super(SoftDiceLoss_binary, self).__init__()
