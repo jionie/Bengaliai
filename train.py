@@ -66,10 +66,10 @@ parser.add_argument('--seed', type=int, default=12, \
     required=False, help='specify the random seed for splitting dataset')
 parser.add_argument('--save_path', type=str, default="/media/jionie/my_disk/Kaggle/Bengaliai/input/bengaliai-cv19/", \
     required=False, help='specify the path for saving splitted csv')
-parser.add_argument('--Balanced', type=str, default="BalanceSampler", \
+parser.add_argument('--Balanced', type=str, default="None", \
     required=False, help='specify the DataSampler')
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
-parser.add_argument('--optimizer', type=str, default='AdamW', required=False, help='specify the optimizer')
+parser.add_argument('--optimizer', type=str, default='SGD', required=False, help='specify the optimizer')
 parser.add_argument("--lr_scheduler", type=str, default='WarmupCosineAnealing', required=False, help="specify the lr scheduler")
 parser.add_argument("--warmup_proportion",  type=float, default=0.01, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
@@ -90,10 +90,10 @@ parser.add_argument('--weight_grapheme_root', type=float, default=2, required=Fa
 parser.add_argument('--weight_vowel_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_consonant_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_grapheme', type=float, default=0.2, required=False, help="specify weight of loss for grapheme")
-parser.add_argument('--beta', default=0.4, type=float,
-                    help='hyperparameter beta')
-parser.add_argument('--alpha', default=0.4, type=float,
-                    help='hyperparameter beta')
+parser.add_argument('--alpha', default=1, type=float,
+                    help='hyperparameter alpha for mixup')
+parser.add_argument('--beta', default=1, type=float,
+                    help='hyperparameter beta for  cutmix')
 parser.add_argument('--cutmix_prob', default=0.5, type=float,
                     help='cutmix probability')
 
@@ -101,7 +101,7 @@ parser.add_argument('--cutmix_prob', default=0.5, type=float,
 
 ############################################################################## Define Constant
 NUM_CLASS=1
-WEIGHT_DECAY = 0.01
+WEIGHT_DECAY = 0.00001
 NUM_CLASSES = [168, 11, 7]
 WEIGHT_LOSS = [2, 1, 1]
 
@@ -234,6 +234,8 @@ def training(
 
     if optimizer_name == "Adam":
         optimizer = torch.optim.Adam(optimizer_grouped_parameters)
+    elif optimizer_name == "SGD":
+        optimizer = torch.optim.SGD(optimizer_grouped_parameters, momentum=0.5)
     elif optimizer_name == "Ranger":
         optimizer = Ranger(optimizer_grouped_parameters)
     elif optimizer_name == "AdamW":
