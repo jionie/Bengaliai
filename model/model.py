@@ -79,7 +79,7 @@ class BengaliaiNet(nn.Module):
             GeM() for _ in range(len(self.n_classes))
         ])
     
-        self.dropout = nn.Dropout(0.2)
+        self.dropout = nn.Dropout(0.25)
     
         # self.dropouts = nn.ModuleList([
         #     nn.Dropout(0.5) for _ in range(5)
