@@ -66,11 +66,11 @@ parser.add_argument('--seed', type=int, default=12, \
     required=False, help='specify the random seed for splitting dataset')
 parser.add_argument('--save_path', type=str, default="/media/jionie/my_disk/Kaggle/Bengaliai/input/bengaliai-cv19/", \
     required=False, help='specify the path for saving splitted csv')
-parser.add_argument('--Balanced', type=str, default="BalanceSampler", \
+parser.add_argument('--Balanced', type=str, default="None", \
     required=False, help='specify the DataSampler')
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
-parser.add_argument('--optimizer', type=str, default='AdamW', required=False, help='specify the optimizer')
-parser.add_argument("--lr_scheduler", type=str, default='WarmupCosineAnealing', required=False, help="specify the lr scheduler")
+parser.add_argument('--optimizer', type=str, default='SGD', required=False, help='specify the optimizer')
+parser.add_argument("--lr_scheduler", type=str, default='ReduceLROnPlateau', required=False, help="specify the lr scheduler")
 parser.add_argument("--warmup_proportion",  type=float, default=0.01, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
 parser.add_argument("--lr", type=float, default=4e-3, required=False, help="specify the initial learning rate for training")
@@ -86,22 +86,26 @@ parser.add_argument("--checkpoint_folder", type=str, default="/media/jionie/my_d
     required=False, help="specify the folder for checkpoint")
 parser.add_argument('--load_pretrain', action='store_true', default=False, help='whether to load pretrain model')
 parser.add_argument('--early_stopping', type=int, default=3, required=False, help="specify how many epochs for early stopping doesn't increase")
-parser.add_argument('--weight_grapheme_root', type=float, default=1, required=False, help="specify weight of loss for grapheme")
+parser.add_argument('--weight_grapheme_root', type=float, default=2, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_vowel_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_consonant_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
-parser.add_argument('--weight_grapheme', type=float, default=0.2, required=False, help="specify weight of loss for grapheme")
+parser.add_argument('--weight_grapheme', type=float, default=1, required=False, help="specify weight of loss for grapheme")
+parser.add_argument('--alpha', default=1, type=float,
+                    help='hyperparameter alpha for mixup')
 parser.add_argument('--beta', default=1, type=float,
-                    help='hyperparameter beta')
-parser.add_argument('--cutmix_prob', default=0.5, type=float,
+                    help='hyperparameter beta for  cutmix')
+parser.add_argument('--cutmix_prob', default=0.25, type=float,
                     help='cutmix probability')
+parser.add_argument('--mixup_prob', default=0.25, type=float,
+                    help='mixup_prob probability')
 
 
 
 ############################################################################## Define Constant
 NUM_CLASS=1
-WEIGHT_DECAY = 0.01
+WEIGHT_DECAY = 0.00001
 NUM_CLASSES = [168, 11, 7, 1295]
-WEIGHT_LOSS = [2, 1, 1, 1]
+WEIGHT_LOSS = [2, 1, 1]
 
 ############################################################################## seed all
 SEED = 42
@@ -144,7 +148,9 @@ def training(
             loss_type,
             early_stopping, 
             beta, 
-            cutmix_prob
+            alpha,
+            cutmix_prob, 
+            mixup_prob
             ):
     
     torch.cuda.empty_cache()
@@ -231,6 +237,8 @@ def training(
 
     if optimizer_name == "Adam":
         optimizer = torch.optim.Adam(optimizer_grouped_parameters)
+    elif optimizer_name == "SGD":
+        optimizer = torch.optim.SGD(optimizer_grouped_parameters, momentum=0.5)
     elif optimizer_name == "Ranger":
         optimizer = Ranger(optimizer_grouped_parameters)
     elif optimizer_name == "AdamW":
@@ -260,6 +268,9 @@ def training(
                                         num_warmup_steps=int(num_train_optimization_steps*warmup_proportion), \
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
+    elif lr_scheduler_name == "ReduceLROnPlateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.7, patience=5, min_lr=1e-10)
+        lr_scheduler_each_iter = False
     else:
         raise NotImplementedError
 
@@ -299,6 +310,10 @@ def training(
         criterion = nn.BCEWithLogitsLoss()
     elif loss_type == 'focal':
         criterion = FocalLoss()
+    elif loss_type == 'focalonehot':
+        criterion = FocalOnehotLoss()
+    elif loss_type == 'ceonehot':
+        criterion = CrossEntropyOnehotLoss()
     else:
         raise NotImplementedError
     
@@ -309,19 +324,25 @@ def training(
         vowel_diacritic_train = []
         consonant_diacritic_train = []
         grapheme_train = []
+       
         grapheme_root_prediction_train = []
         vowel_diacritic_prediction_train = []
         consonant_diacritic_prediction_train = []
         grapheme_prediction_train = []
+      
         
         # update lr and start from start_epoch  
-        if ((epoch > 1) and (not lr_scheduler_each_iter)):
-            scheduler.step()
-           
-        if (epoch < start_epoch):
-            if (lr_scheduler_each_iter):
-                scheduler.step(len(train_data_loader))
-            continue
+        if lr_scheduler_each_iter:
+            if (epoch < start_epoch):
+                for _ in range(len(train_data_loader)):
+                    scheduler.step()
+                continue
+                
+        else:
+            if lr_scheduler_name != "ReduceLROnPlateau":
+                scheduler.step()
+            if (epoch < start_epoch):
+                continue
         
         log.write("Epoch%s\n" % epoch)
         log.write('\n')
@@ -369,7 +390,7 @@ def training(
 
             # predict and calculate loss (cutmix added)
             r = np.random.rand(1)
-            if beta > 0 and r < cutmix_prob:
+            if r < cutmix_prob:
                 
                 def rand_bbox(size, lam):
                     W = size[2]
@@ -422,9 +443,36 @@ def training(
                     weight_consonant_diacritic * criterion(consonant_diacritic_prediction, consonant_diacritic_a) * lam + \
                     weight_consonant_diacritic * criterion(consonant_diacritic_prediction, consonant_diacritic_b) * (1 - lam) + \
                     weight_grapheme * criterion(grapheme_prediction, grapheme_a) * lam + \
-                    weight_grapheme * criterion(grapheme_prediction, grapheme_b) * (1 - lam) 
-                    
-            else:
+                    weight_grapheme * criterion(grapheme_prediction, grapheme_b) * (1 - lam)
+                   
+            elif r < (mixup_prob + cutmix_prob):
+                indices = torch.randperm(image.size(0))
+                shuffled_image = image[indices]
+                shuffled_grapheme_root = grapheme_root[indices]
+                shuffled_vowel_diacritic = vowel_diacritic[indices]
+                shuffled_consonant_diacritic = consonant_diacritic[indices]
+                shuffled_grapheme = grapheme[indices]
+                
+                lam = np.random.beta(alpha, alpha)
+                image = image * lam + shuffled_image * (1 - lam)
+                
+                predictions = model(image)  
+            
+                grapheme_root_prediction = torch.squeeze(predictions[0])
+                vowel_diacritic_prediction = torch.squeeze(predictions[1])
+                consonant_diacritic_prediction = torch.squeeze(predictions[2])
+                grapheme_prediction = torch.squeeze(predictions[3])
+                
+                loss = weight_grapheme_root * criterion(grapheme_root_prediction, grapheme_root) * lam + \
+                    weight_grapheme_root * criterion(grapheme_root_prediction, shuffled_grapheme_root) * (1 - lam) + \
+                    weight_vowel_diacritic * criterion(vowel_diacritic_prediction, vowel_diacritic) * lam + \
+                    weight_vowel_diacritic * criterion(vowel_diacritic_prediction, shuffled_vowel_diacritic) * (1- lam) + \
+                    weight_consonant_diacritic * criterion(consonant_diacritic_prediction, consonant_diacritic) * lam + \
+                    weight_consonant_diacritic * criterion(consonant_diacritic_prediction, shuffled_consonant_diacritic) * (1 - lam) + \
+                    weight_grapheme * criterion(grapheme_prediction, grapheme) * lam + \
+                    weight_grapheme * criterion(grapheme_prediction, shuffled_grapheme) * (1 - lam)
+                     
+            else:   
                 predictions = model(image)  
             
                 grapheme_root_prediction = torch.squeeze(predictions[0])
@@ -436,7 +484,9 @@ def training(
                 loss = weight_grapheme_root * criterion(grapheme_root_prediction, grapheme_root) + \
                     weight_vowel_diacritic * criterion(vowel_diacritic_prediction, vowel_diacritic) + \
                     weight_consonant_diacritic * criterion(consonant_diacritic_prediction, consonant_diacritic) + \
-                    weight_grapheme * criterion(grapheme_prediction, grapheme) 
+                    weight_grapheme * criterion(grapheme_prediction, grapheme)  
+                
+                 
             
             # use apex
             with amp.scale_loss(loss/accumulation_steps, optimizer) as scaled_loss:
@@ -456,8 +506,8 @@ def training(
                 writer.add_scalar('train_loss_' + str(fold), loss.item(), (epoch-1)*len(train_data_loader)*batch_size+tr_batch_i*batch_size)
             
             # calculate statistics
-            if ((loss_type == "bce") or (loss_type == "focal")):
-                # prediction = torch.sigmoid(prediction)
+            if not ((loss_type == "mae") or (loss_type == "mse")):
+                
                 grapheme_root  = torch.argmax(grapheme_root, 1)
                 grapheme_root = torch.squeeze(grapheme_root.float())
                 
@@ -470,17 +520,6 @@ def training(
                 grapheme  = torch.argmax(grapheme, 1)
                 grapheme = torch.squeeze(grapheme.float())
                 
-                grapheme_root_prediction  = torch.argmax(grapheme_root_prediction, 1)
-                grapheme_root_prediction = torch.squeeze(grapheme_root_prediction.float())
-                
-                vowel_diacritic_prediction  = torch.argmax(vowel_diacritic_prediction, 1)
-                vowel_diacritic_prediction = torch.squeeze(vowel_diacritic_prediction.float())
-                
-                consonant_diacritic_prediction  = torch.argmax(consonant_diacritic_prediction, 1)
-                consonant_diacritic_prediction = torch.squeeze(consonant_diacritic_prediction.float())
-                
-                grapheme_prediction  = torch.argmax(grapheme_prediction, 1)
-                grapheme_prediction = torch.squeeze(grapheme_prediction.float())
                 
             # calculate traing result without cutmix, otherwise prediction is not related to image
             with torch.no_grad():
@@ -493,27 +532,31 @@ def training(
                 grapheme_prediction_no_cutmix = torch.squeeze(predictions_no_cutmix[3])
                 
                 # calculate statistics
-                if ((loss_type == "bce") or (loss_type == "focal")):
-                    # prediction = torch.sigmoid(prediction)
+                if not ((loss_type == "mae") or (loss_type == "mse")):
                     
+                    grapheme_root_prediction_no_cutmix = F.softmax(grapheme_root_prediction_no_cutmix, 1)
                     grapheme_root_prediction_no_cutmix  = torch.argmax(grapheme_root_prediction_no_cutmix, 1)
                     grapheme_root_prediction_no_cutmix = torch.squeeze(grapheme_root_prediction_no_cutmix.float())
                     
+                    vowel_diacritic_prediction_no_cutmix = F.softmax(vowel_diacritic_prediction_no_cutmix, 1)
                     vowel_diacritic_prediction_no_cutmix  = torch.argmax(vowel_diacritic_prediction_no_cutmix, 1)
                     vowel_diacritic_prediction_no_cutmix = torch.squeeze(vowel_diacritic_prediction_no_cutmix.float())
                     
+                    consonant_diacritic_prediction_no_cutmix = F.softmax(consonant_diacritic_prediction_no_cutmix, 1)
                     consonant_diacritic_prediction_no_cutmix  = torch.argmax(consonant_diacritic_prediction_no_cutmix, 1)
                     consonant_diacritic_prediction_no_cutmix = torch.squeeze(consonant_diacritic_prediction_no_cutmix.float())
                     
+                    grapheme_prediction_no_cutmix = F.softmax(grapheme_prediction_no_cutmix, 1)
                     grapheme_prediction_no_cutmix  = torch.argmax(grapheme_prediction_no_cutmix, 1)
                     grapheme_prediction_no_cutmix = torch.squeeze(grapheme_prediction_no_cutmix.float())
+                    
             
             
             grapheme_root = grapheme_root.cpu().detach().numpy()
             vowel_diacritic = vowel_diacritic.cpu().detach().numpy()
             consonant_diacritic = consonant_diacritic.cpu().detach().numpy()
             grapheme = grapheme.cpu().detach().numpy()
-            
+           
             grapheme_root_prediction = grapheme_root_prediction_no_cutmix.cpu().detach().numpy()
             vowel_diacritic_prediction = vowel_diacritic_prediction_no_cutmix.cpu().detach().numpy()
             consonant_diacritic_prediction = consonant_diacritic_prediction_no_cutmix.cpu().detach().numpy()
@@ -529,10 +572,12 @@ def training(
             vowel_diacritic_train.append(vowel_diacritic)
             consonant_diacritic_train.append(consonant_diacritic)
             grapheme_train.append(grapheme)
+            
             grapheme_root_prediction_train.append(grapheme_root_prediction)
             vowel_diacritic_prediction_train.append(vowel_diacritic_prediction)
             consonant_diacritic_prediction_train.append(consonant_diacritic_prediction)
             grapheme_prediction_train.append(grapheme_prediction)
+            
             
             grapheme_root_recall_train = metric(np.concatenate(grapheme_root_prediction_train, axis=0), \
                 np.concatenate(grapheme_root_train, axis=0))
@@ -542,6 +587,7 @@ def training(
                 np.concatenate(consonant_diacritic_train, axis=0))
             grapheme_recall_train = metric(np.concatenate(grapheme_prediction_train, axis=0), \
                 np.concatenate(grapheme_train, axis=0))
+           
             
             average_recall_train = np.average([grapheme_root_recall_train, vowel_diacritic_recall_train, consonant_diacritic_recall_train], \
                 weights=[2,1,1])
@@ -559,7 +605,7 @@ def training(
                         consonant_diacritic_recall_train, \
                         grapheme_recall_train))
             
-            if (tr_batch_i + 1) % eval_step == 0:  
+            if (tr_batch_i) % eval_step == 0:  
                 
                 eval_count += 1
                 
@@ -570,10 +616,12 @@ def training(
                 vowel_diacritic_val = []
                 consonant_diacritic_val = []
                 grapheme_val = []
+                
                 grapheme_root_prediction_val = []
                 vowel_diacritic_prediction_val = []
                 consonant_diacritic_prediction_val = []
                 grapheme_prediction_val = []
+               
                 
                 with torch.no_grad():
                     
@@ -605,6 +653,7 @@ def training(
                             
                             _, grapheme  = torch.max(grapheme, 1)
                             grapheme = torch.squeeze(grapheme.float())
+                            
 
                         # predict and calculate loss (only need torch.sigmoid when inference)
                         predictions = model(image)  
@@ -613,6 +662,7 @@ def training(
                         vowel_diacritic_prediction = torch.squeeze(predictions[1])
                         consonant_diacritic_prediction = torch.squeeze(predictions[2])
                         grapheme_prediction = torch.squeeze(predictions[3])
+            
                         
                     
                         loss = weight_grapheme_root * criterion(grapheme_root_prediction, grapheme_root) + \
@@ -623,8 +673,8 @@ def training(
                         writer.add_scalar('val_loss_' + str(fold), loss.item(), (eval_count-1)*len(val_data_loader)*valid_batch_size+val_batch_i*valid_batch_size)
                         
                         # calculate statistics
-                        if ((loss_type == "bce") or (loss_type == "focal")):
-                            # prediction = torch.sigmoid(prediction)
+                        if not ((loss_type == "mae") or (loss_type == "mse")):
+                            
                             grapheme_root  = torch.argmax(grapheme_root, 1)
                             grapheme_root = torch.squeeze(grapheme_root.float())
                             
@@ -637,27 +687,33 @@ def training(
                             grapheme  = torch.argmax(grapheme, 1)
                             grapheme = torch.squeeze(grapheme.float())
                             
+                            grapheme_root_prediction = F.softmax(grapheme_root_prediction, 1)
                             grapheme_root_prediction  = torch.argmax(grapheme_root_prediction, 1)
                             grapheme_root_prediction = torch.squeeze(grapheme_root_prediction.float())
                             
+                            vowel_diacritic_prediction = F.softmax(vowel_diacritic_prediction, 1)
                             vowel_diacritic_prediction  = torch.argmax(vowel_diacritic_prediction, 1)
                             vowel_diacritic_prediction = torch.squeeze(vowel_diacritic_prediction.float())
                             
+                            consonant_diacritic_prediction = F.softmax(consonant_diacritic_prediction, 1)
                             consonant_diacritic_prediction  = torch.argmax(consonant_diacritic_prediction, 1)
                             consonant_diacritic_prediction = torch.squeeze(consonant_diacritic_prediction.float())
                             
+                            grapheme_prediction = F.softmax(grapheme_prediction, 1)
                             grapheme_prediction  = torch.argmax(grapheme_prediction, 1)
                             grapheme_prediction = torch.squeeze(grapheme_prediction.float())
-
+                            
+            
                         grapheme_root = grapheme_root.cpu().detach().numpy()
                         vowel_diacritic = vowel_diacritic.cpu().detach().numpy()
                         consonant_diacritic = consonant_diacritic.cpu().detach().numpy()
                         grapheme = grapheme.cpu().detach().numpy()
-                        
+                       
                         grapheme_root_prediction = grapheme_root_prediction.cpu().detach().numpy()
                         vowel_diacritic_prediction = vowel_diacritic_prediction.cpu().detach().numpy()
                         consonant_diacritic_prediction = consonant_diacritic_prediction.cpu().detach().numpy()
                         grapheme_prediction = grapheme_prediction.cpu().detach().numpy()
+                       
 
                         l = np.array([loss.item()*valid_batch_size])
                         n = np.array([valid_batch_size])
@@ -668,10 +724,12 @@ def training(
                         vowel_diacritic_val.append(vowel_diacritic)
                         consonant_diacritic_val.append(consonant_diacritic)
                         grapheme_val.append(grapheme)
+                       
                         grapheme_root_prediction_val.append(grapheme_root_prediction)
                         vowel_diacritic_prediction_val.append(vowel_diacritic_prediction)
                         consonant_diacritic_prediction_val.append(consonant_diacritic_prediction)
                         grapheme_prediction_val.append(grapheme_prediction)
+                       
                         
                         grapheme_root_recall_val = metric(np.concatenate(grapheme_root_prediction_val, axis=0), \
                             np.concatenate(grapheme_root_val, axis=0))
@@ -681,7 +739,7 @@ def training(
                             np.concatenate(consonant_diacritic_val, axis=0))
                         grapheme_recall_val = metric(np.concatenate(grapheme_prediction_val, axis=0), \
                             np.concatenate(grapheme_val, axis=0))
-                        
+                       
                         average_recall_val = np.average([grapheme_root_recall_val, vowel_diacritic_recall_val, consonant_diacritic_recall_val], \
                             weights=[2,1,1])
             
@@ -696,6 +754,9 @@ def training(
                                 grapheme_recall_val))
 
         val_metric_epoch = average_recall_val
+        # scheduler lr by metric
+        if lr_scheduler_name == "ReduceLROnPlateau":
+            scheduler.step(val_metric_epoch)
 
         if (val_metric_epoch >= valid_metric_optimal):
             
@@ -775,7 +836,9 @@ if __name__ == "__main__":
             args.loss, \
             args.early_stopping, \
             args.beta, \
-            args.cutmix_prob)
+            args.alpha, \
+            args.cutmix_prob, \
+            args.mixup_prob)
 
     gc.collect()
 

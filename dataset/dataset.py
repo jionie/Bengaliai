@@ -59,21 +59,46 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 224, 224
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 128, 128
+
+
+def bbox(img):
+    rows = np.any(img, axis=1)
+    cols = np.any(img, axis=0)
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
+    return rmin, rmax, cmin, cmax
+
+def crop_resize(img0, size=IMAGE_HEIGHT_RESIZE, pad=16):
+    #crop a box around pixels large than the threshold 
+    #some images contain line at the sides
+    ymin,ymax,xmin,xmax = bbox(img0[5:-5,5:-5] > 80)
+    #cropping may cut too much, so we need to add it back
+    xmin = xmin - 13 if (xmin > 13) else 0
+    ymin = ymin - 10 if (ymin > 10) else 0
+    xmax = xmax + 13 if (xmax < IMAGE_WIDTH - 13) else IMAGE_WIDTH
+    ymax = ymax + 10 if (ymax < IMAGE_HEIGHT - 10) else IMAGE_HEIGHT
+    img = img0[ymin:ymax,xmin:xmax]
+    #remove lo intensity pixels as noise
+    img[img < 28] = 0
+    lx, ly = xmax-xmin,ymax-ymin
+    l = max(lx,ly) + pad
+    #make sure that the aspect ratio is kept in rescaling
+    img = np.pad(img, [((l-ly)//2,), ((l-lx)//2,)], mode='constant')
+    return cv2.resize(img,(size,size))
 
 
 ############################## Prapare Augmentation
 train_transform = albumentations.Compose([
-    CropCharImage(threshold=15, p=0.5),
     albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
-    albumentations.Rotate(limit=20, p=0.5),
-    albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.5),
+    # albumentations.Rotate(limit=30, p=0.5),
+    # albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.5),
     albumentations.OneOf([
         albumentations.MotionBlur(blur_limit=5, p=1.0),
         albumentations.Blur(blur_limit=5, p=1.0),
         albumentations.GaussianBlur(blur_limit=5, p=1.0)
     ], p=0.5), 
-    albumentations.GridDistortion(distort_limit=0.1, p=0.5), 
+    # albumentations.GridDistortion(distort_limit=0.3, p=0.5), 
     ])
 
 
@@ -88,6 +113,7 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
     def __init__(self, \
                 data_path, \
                 df, \
+                mode='train', \
                 labeled=True, \
                 transform = transforms.Compose([transforms.RandomResizedCrop(128),transforms.ToTensor()]), \
                 grapheme_root_labels_dict={}, \
@@ -97,6 +123,7 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
 
         self.data_path = data_path
         self.df = df
+        self.mode = mode
         self.labeled = labeled
         self.transform = transform
         self.image_df = pd.concat([pd.read_parquet(os.path.join(data_path, f'train_image_data_{i}.parquet')) for i in range(4)]).reindex()
@@ -123,17 +150,55 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         # image = self.image[idx].copy().reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
         image = \
             self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
+            
+        image = 255 - image
+        image = crop_resize(image)
         
-        if np.random.uniform() < 0.5:
-            image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2).astype('uint8')
-            image = augment_and_mix(image, severity=1, width=1, depth=-1, alpha=1.)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # if ((self.mode == 'train') and (np.random.uniform() < 0.5)):
+        #     image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2).astype('uint8')
+        #     image = augment_and_mix(image, severity=1, width=1, depth=-1, alpha=1.)
+        #     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        image = np.float32(image)
+        
+        if (self.mode == 'train'):
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_projective(image, 0.4),
+                lambda image : do_random_perspective(image, 0.4),
+                lambda image : do_random_scale(image, 0.4),
+                lambda image : do_random_rotate(image, 0.4),
+                lambda image : do_random_shear_x(image, 0.5),
+                lambda image : do_random_shear_y(image, 0.4),
+                lambda image : do_random_stretch_x(image, 0.5),
+                lambda image : do_random_stretch_y(image, 0.5),
+                lambda image : do_random_grid_distortion(image, 0.4),
+                lambda image : do_random_custom_distortion1(image, 0.5),
+            ],1):
+                image = op(image)
+
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_erode(image, 0.4),
+                lambda image : do_random_dilate(image, 0.4),
+                lambda image : do_random_sprinkle(image, 0.5),
+                lambda image : do_random_line(image, 0.5),
+            ],1):
+                image = op(image)
+
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_contast(image, 0.5),
+                lambda image : do_random_block_fade(image, 0.5),
+            ],1):
+                image = op(image)
         
         if not (self.transform is None):
+            
             image = self.transform(image=np.float32(image))['image']
             
         image = np.repeat(np.expand_dims(image, axis=0), 3, axis=0).astype(np.float32)
-        image = image / 255
+        image = image / np.max(image)
         
         if self.labeled:
             
@@ -206,7 +271,7 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
                         num_workers=2, \
                         train_transform=train_transform, \
                         val_transform=test_transform, \
-                        Balanced="ImbalancedDatasetSampler"):
+                        Balanced="None"):
     
 
     
@@ -245,6 +310,7 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
     
     ds_train = bengaliai_Dataset(data_path, \
                                 train_df, \
+                                mode='train', \
                                 labeled=True, \
                                 transform=train_transform, \
                                 grapheme_root_labels_dict=img_class_dict_grapheme_root, \
@@ -259,11 +325,13 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
         train_loader = torch.utils.data.DataLoader(ds_train, sampler=ImbalancedDatasetSampler(ds_train), \
         batch_size=batch_size, num_workers=num_workers, drop_last=True)
     else:
-        train_loader = torch.utils.data.DataLoader(ds_trainbatch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True)
+        train_loader = torch.utils.data.DataLoader(ds_train, sampler=torch.utils.data.RandomSampler(ds_train), \
+        batch_size=batch_size, num_workers=num_workers, pin_memory=True, drop_last=True)
     train_loader.num = len(train_df)
 
     ds_val = bengaliai_Dataset(data_path, \
                                val_df, \
+                               mode='val', \
                                labeled=True, \
                                transform=val_transform, \
                                grapheme_root_labels_dict=img_class_dict_grapheme_root, \
