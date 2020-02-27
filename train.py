@@ -71,7 +71,7 @@ parser.add_argument('--Balanced', type=str, default="None", \
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
 parser.add_argument('--optimizer', type=str, default='Ranger', required=False, help='specify the optimizer')
 parser.add_argument("--lr_scheduler", type=str, default='WarmupCosineAnealingWithHardRestart', required=False, help="specify the lr scheduler")
-parser.add_argument("--warmup_proportion",  type=float, default=0.005, required=False, \
+parser.add_argument("--warmup_proportion",  type=float, default=0.05, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
 parser.add_argument("--lr", type=float, default=4e-3, required=False, help="specify the initial learning rate for training")
 parser.add_argument("--num_epoch", type=int, default=20, required=False, help="specify the total epoch")
@@ -605,7 +605,7 @@ def training(
                         consonant_diacritic_recall_train, \
                         grapheme_recall_train))
             
-            if (tr_batch_i + 0) % eval_step == 0:  
+            if (tr_batch_i + 1) % eval_step == 0:  
                 
                 eval_count += 1
                 
