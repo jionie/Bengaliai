@@ -88,10 +88,6 @@ class BengaliaiNet(nn.Module):
     
         self.dropout = nn.Dropout(0.25)
     
-        # self.dropouts = nn.ModuleList([
-        #     nn.Dropout(0.5) for _ in range(5)
-        # ])
-        
         self.logits = nn.ModuleList(
             [ nn.Linear(2048, c) for c in self.n_classes ]
         )
@@ -133,17 +129,9 @@ class BengaliaiNet(nn.Module):
         logits = []
         
         for i, avg_pooling in enumerate(self.avg_poolings):
+            
             logit = avg_pooling(x)
             logit = logit.view(bs, -1)
-            
-            # for j, dropout in enumerate(self.dropouts):
-                
-            #     if j == 0:
-            #         logit = dropout(logit) / len(self.dropouts)
-            #     else:
-            #         logit += dropout(logit) / len(self.dropouts)
-            
-            # logits.append(self.logits[i](logit))
         
             logit = self.dropout(logit)
             logits.append(self.logits[i](logit))

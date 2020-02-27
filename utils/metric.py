@@ -5,15 +5,20 @@ import sklearn.metrics
 def metric(y_pred, y_true):
     return sklearn.metrics.recall_score(y_true, y_pred, average='macro')
 
-def compute_kaggle_metric_by_decode(prediction, class_map):
+def decode(prediction, class_map):
     
-    num_test= len(prediction[0])
-    p0,p1,p2,p3 = prediction
-    for b in range(num_test):
-        p0[b]= class_map[class_map['label'] == p3[b]]['grapheme_root']
-        p1[b]= class_map[class_map['label'] == p3[b]]['vowel_diacritic']
-        p2[b]= class_map[class_map['label'] == p3[b]]['consonant_diacritic']
-    prediction = [p0,p1,p2,p3]
+    p0, p1, p2, p3 = prediction[0], prediction[1], prediction[2], prediction[3]
     
-    return prediction
+    for b in range(p0.shape[0]):
+        # print(p0[b], p1[b], p2[b], p3[b], class_map[class_map['label'] == p3[b]]['grapheme_root'].values[0], \
+        #     class_map[class_map['label'] == p3[b]]['vowel_diacritic'].values[0], \
+        #     class_map[class_map['label'] == p3[b]]['consonant_diacritic'].values[0])
+        p0[b] = class_map[class_map['label'] == p3[b]]['grapheme_root'].values[0]
+        p1[b] = class_map[class_map['label'] == p3[b]]['vowel_diacritic'].values[0]
+        p2[b] = class_map[class_map['label'] == p3[b]]['consonant_diacritic'].values[0]
+        # print(p0[b], p1[b], p2[b], p3[b], class_map[class_map['label'] == p3[b]]['grapheme_root'].values[0], \
+        #     class_map[class_map['label'] == p3[b]]['vowel_diacritic'].values[0], \
+        #     class_map[class_map['label'] == p3[b]]['consonant_diacritic'].values[0])
+    
+    return p0, p1 ,p2, p3
 
