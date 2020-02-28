@@ -72,7 +72,7 @@ def bbox(img):
 def crop_resize(img0, size=IMAGE_HEIGHT_RESIZE, pad=16):
     #crop a box around pixels large than the threshold 
     #some images contain line at the sides
-    ymin,ymax,xmin,xmax = bbox(img0[5:-5,5:-5] > 80)
+    ymin,ymax,xmin,xmax = bbox(img0[5:-5,5:-5] > 60)
     #cropping may cut too much, so we need to add it back
     xmin = xmin - 13 if (xmin > 13) else 0
     ymin = ymin - 10 if (ymin > 10) else 0

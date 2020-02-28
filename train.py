@@ -69,8 +69,8 @@ parser.add_argument('--save_path', type=str, default="/media/jionie/my_disk/Kagg
 parser.add_argument('--Balanced', type=str, default="None", \
     required=False, help='specify the DataSampler')
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
-parser.add_argument('--optimizer', type=str, default='Ranger', required=False, help='specify the optimizer')
-parser.add_argument("--lr_scheduler", type=str, default='WarmupCosineAnealingWithHardRestart', required=False, help="specify the lr scheduler")
+parser.add_argument('--optimizer', type=str, default='SGD', required=False, help='specify the optimizer')
+parser.add_argument("--lr_scheduler", type=str, default='ReduceLROnPlateau', required=False, help="specify the lr scheduler")
 parser.add_argument("--warmup_proportion",  type=float, default=0.05, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
 parser.add_argument("--lr", type=float, default=4e-3, required=False, help="specify the initial learning rate for training")
@@ -270,7 +270,7 @@ def training(
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
     elif lr_scheduler_name == "ReduceLROnPlateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.7, patience=5, min_lr=1e-10)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.7, patience=2, min_lr=1e-10)
         lr_scheduler_each_iter = False
     else:
         raise NotImplementedError
