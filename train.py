@@ -324,10 +324,17 @@ def training(
         
         # full training with cutmix and mixup after 50 epoch
         if epoch > 50:
-            if cutmix_prob != 0.5:
-                cutmix_prob = 0.5
-            if mixup_prob != 0.5:
-                mixup_prob = 0.5
+            if epoch < 75:
+                if cutmix_prob != 0.5:
+                    cutmix_prob = 0.5
+                if mixup_prob != 0.5:
+                    mixup_prob = 0.5
+            else:
+                if cutmix_prob != 1:
+                    cutmix_prob = 1
+                if mixup_prob != 0:
+                    mixup_prob = 0
+        
 
         # init in-epoch statistics
         grapheme_root_train = []

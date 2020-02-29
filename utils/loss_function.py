@@ -26,15 +26,38 @@ class FocalOnehotLoss(nn.Module):
 
 class CrossEntropyOnehotLoss(nn.Module):
     __name__ = 'CrossEntropyOnehotLoss'
-    def __init__(self):
+    def __init__(self, reduction="mean"):
         super(CrossEntropyOnehotLoss, self).__init__()
+        self.reduction = reduction
 
     def forward(self, logit, onehot):
         log_probability = -F.log_softmax(logit,1)
         loss = (log_probability*onehot)
         loss = loss.sum(1)
-        loss = loss.mean()
+        if self.reduction == "mean":
+            loss = loss.mean()
+        elif self.reduction == "sum":
+            loss = loss.mean()
+        elif self.reduction == "none":
+            loss = loss
+        else:
+            raise NotImplementedError
         return loss
+    
+    
+class CrossEntropyOnehotLossOHEM(nn.Module):
+    def __init__(self, top_k=0.5):
+        super(CrossEntropyOnehotLossOHEM, self).__init__()
+        self.top_k = top_k
+        self.loss = CrossEntropyOnehotLoss(reduction="none")
+
+    def forward(self, input, target):
+        loss = self.loss(input, target)
+        if self.top_k == 1:
+            return torch.mean(loss)
+        else:
+            valid_loss, idxs = torch.topk(loss, int(self.top_k * loss.size()[0]), dim=0)    
+            return torch.mean(valid_loss)
 
 
 class SoftDiceLoss_binary(nn.Module):
