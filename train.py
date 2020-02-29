@@ -90,9 +90,9 @@ parser.add_argument('--weight_grapheme_root', type=float, default=2, required=Fa
 parser.add_argument('--weight_vowel_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_consonant_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_grapheme', type=float, default=1, required=False, help="specify weight of loss for grapheme")
-parser.add_argument('--alpha', default=1, type=float,
+parser.add_argument('--alpha', default=0.4, type=float,
                     help='hyperparameter alpha for mixup')
-parser.add_argument('--beta', default=1, type=float,
+parser.add_argument('--beta', default=0.4, type=float,
                     help='hyperparameter beta for  cutmix')
 parser.add_argument('--cutmix_prob', default=0.25, type=float,
                     help='cutmix probability')
@@ -317,14 +317,16 @@ def training(
         criterion = CrossEntropyOnehotLoss()
     elif loss_type == "ceonehotohem":
         criterion = CrossEntropyOnehotLossOHEM(top_k=0.75)
+    elif loss_type == "focalonehotohem":
+        criterion = FocalOnehotLossOHEM(top_k=0.75)
     else:
         raise NotImplementedError
     
     for epoch in range(1, num_epoch+1):
         
         # full training with cutmix and mixup after 50 epoch
-        if epoch > 50:
-            if epoch < 75:
+        if epoch > 25:
+            if epoch < 50:
                 if cutmix_prob != 0.5:
                     cutmix_prob = 0.5
                 if mixup_prob != 0.5:
@@ -334,6 +336,10 @@ def training(
                     cutmix_prob = 1
                 if mixup_prob != 0:
                     mixup_prob = 0
+                    
+        if epoch > 50:
+            if weight_grapheme != 0.1:
+                weight_grapheme = 0.1
         
 
         # init in-epoch statistics

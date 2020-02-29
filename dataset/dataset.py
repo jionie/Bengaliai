@@ -92,6 +92,7 @@ def crop_resize(img0, size=IMAGE_HEIGHT_RESIZE, pad=16):
 train_transform = albumentations.Compose([
     albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
     albumentations.Rotate(limit=30, p=0.5),
+    albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0, p=0.5),
     albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.5),
     albumentations.GridDistortion(distort_limit=0.3, p=0.5), 
     ])
@@ -147,7 +148,7 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
             self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
             
         image = 255 - image
-        image = crop_resize(image)
+        # image = crop_resize(image)
         
         # if ((self.mode == 'train') and (np.random.uniform() < 0.5)):
         #     image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2).astype('uint8')
