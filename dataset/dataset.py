@@ -148,7 +148,7 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
             self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
             
         image = 255 - image
-        # image = crop_resize(image)
+        image = crop_resize(image)
         
         # if ((self.mode == 'train') and (np.random.uniform() < 0.5)):
         #     image = np.repeat(np.expand_dims(image, axis=2), 3, axis=2).astype('uint8')
@@ -173,21 +173,21 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
             ],1):
                 image = op(image)
 
-            # for op in np.random.choice([
-            #     lambda image : do_identity(image),
-            #     lambda image : do_random_erode(image, 0.4),
-            #     lambda image : do_random_dilate(image, 0.4),
-            #     lambda image : do_random_sprinkle(image, 0.5),
-            #     lambda image : do_random_line(image, 0.5),
-            # ],1):
-            #     image = op(image)
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_erode(image, 0.4),
+                lambda image : do_random_dilate(image, 0.4),
+                lambda image : do_random_sprinkle(image, 0.5),
+                lambda image : do_random_line(image, 0.5),
+            ],1):
+                image = op(image)
 
-            # for op in np.random.choice([
-            #     lambda image : do_identity(image),
-            #     lambda image : do_random_contast(image, 0.5),
-            #     lambda image : do_random_block_fade(image, 0.5),
-            # ],1):
-            #     image = op(image)
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_contast(image, 0.5),
+                lambda image : do_random_block_fade(image, 0.5),
+            ],1):
+                image = op(image)
         
         if not (self.transform is None):
             

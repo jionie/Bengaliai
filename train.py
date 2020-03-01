@@ -98,6 +98,7 @@ parser.add_argument('--cutmix_prob', default=0.25, type=float,
                     help='cutmix probability')
 parser.add_argument('--mixup_prob', default=0.25, type=float,
                     help='mixup_prob probability')
+parser.add_argument('--apex', action='store_true', default=False, help='whether to use apex')
 
 
 
@@ -151,7 +152,8 @@ def training(
             beta, 
             alpha,
             cutmix_prob, 
-            mixup_prob
+            mixup_prob, 
+            apex
             ):
     
     torch.cuda.empty_cache()
@@ -270,7 +272,7 @@ def training(
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
     elif lr_scheduler_name == "ReduceLROnPlateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.7, patience=2, min_lr=1e-10)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.25, patience=2, min_lr=1e-10)
         lr_scheduler_each_iter = False
     else:
         raise NotImplementedError
@@ -281,7 +283,8 @@ def training(
     log.write('\n')
 
     ###############################################################################  mix precision
-    model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+    if apex:
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
     # model = nn.DataParallel(model)
 
     ############################################################################### eval setting
@@ -325,8 +328,8 @@ def training(
     for epoch in range(1, num_epoch+1):
         
         # full training with cutmix and mixup after 50 epoch
-        if epoch > 25:
-            if epoch < 50:
+        if epoch > 10:
+            if epoch < 25:
                 if cutmix_prob != 0.5:
                     cutmix_prob = 0.5
                 if mixup_prob != 0.5:
@@ -337,7 +340,7 @@ def training(
                 if mixup_prob != 0:
                     mixup_prob = 0
                     
-        if epoch > 50:
+        if epoch > 15:
             if weight_grapheme != 0.1:
                 weight_grapheme = 0.1
         
@@ -512,11 +515,12 @@ def training(
                  
             
             # use apex
-            with amp.scale_loss(loss/accumulation_steps, optimizer) as scaled_loss:
-                scaled_loss.backward()
-
-            # don't use apex
-            #loss.backward()
+            if apex:
+                with amp.scale_loss(loss/accumulation_steps, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                # don't use apex
+                loss.backward()
         
             if ((tr_batch_i+1) % accumulation_steps == 0):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0, norm_type=2)
@@ -891,7 +895,8 @@ if __name__ == "__main__":
             args.beta, \
             args.alpha, \
             args.cutmix_prob, \
-            args.mixup_prob)
+            args.mixup_prob, \
+            args.apex)
 
     gc.collect()
 
