@@ -59,7 +59,7 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 128, 128
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 224, 224
 
 
 def bbox(img):
@@ -173,21 +173,21 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
             ],1):
                 image = op(image)
 
-            for op in np.random.choice([
-                lambda image : do_identity(image),
-                lambda image : do_random_erode(image, 0.4),
-                lambda image : do_random_dilate(image, 0.4),
-                lambda image : do_random_sprinkle(image, 0.5),
-                lambda image : do_random_line(image, 0.5),
-            ],1):
-                image = op(image)
+            # for op in np.random.choice([
+            #     lambda image : do_identity(image),
+            #     lambda image : do_random_erode(image, 0.4),
+            #     lambda image : do_random_dilate(image, 0.4),
+            #     lambda image : do_random_sprinkle(image, 0.5),
+            #     lambda image : do_random_line(image, 0.5),
+            # ],1):
+            #     image = op(image)
 
-            for op in np.random.choice([
-                lambda image : do_identity(image),
-                lambda image : do_random_contast(image, 0.5),
-                lambda image : do_random_block_fade(image, 0.5),
-            ],1):
-                image = op(image)
+            # for op in np.random.choice([
+            #     lambda image : do_identity(image),
+            #     lambda image : do_random_contast(image, 0.5),
+            #     lambda image : do_random_block_fade(image, 0.5),
+            # ],1):
+            #     image = op(image)
         
         if not (self.transform is None):
             

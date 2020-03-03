@@ -36,7 +36,7 @@ class Identity(nn.Module):
 
 ############################################ Define Net Class
 class BengaliaiNet(nn.Module):
-    def __init__(self, model_type="seresnext50", n_classes=[168, 11, 7, 1295]):
+    def __init__(self, model_type="efficientnet-b1", n_classes=[168, 11, 7, 1295]):
         super(BengaliaiNet, self).__init__()
         self.model_type = model_type
         self.n_classes = n_classes
@@ -44,33 +44,46 @@ class BengaliaiNet(nn.Module):
         if model_type == "ResNet34":
             self.basemodel = ptcv_get_model("resnet34", pretrained=True)
             self.basemodel.features.final_pool = Identity()
+            self.feature_size = 2048
         elif model_type == "seresnext50":
             self.basemodel = ptcv_get_model("seresnext50_32x4d", pretrained=True)
             self.basemodel.features.final_pool = Identity()
+            self.feature_size = 2048
         elif model_type == "seresnext101":
             self.basemodel = ptcv_get_model("seresnext101_32x4d", pretrained=True)
             self.basemodel.features.final_pool = Identity()
+            self.feature_size = 2048
         elif model_type == "senet154":
             self.basemodel = ptcv_get_model("senet154", pretrained=True)
             self.basemodel.features.final_pool = Identity()
+            self.feature_size = 2048
         elif model_type == 'efficientnet-b0':
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b0')
+            self.feature_size = 2048
         elif model_type == 'efficientnet-b1':
-            self.basemodel = EfficientNet.from_pretrained('efficientnet-b1')
+            self.basemodel = EfficientNet.from_pretrained('efficientnet-b1', advprop=True)
+            self.feature_size = 1280
         elif model_type == 'efficientnet-b2':
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b2')
+            self.feature_size = 2048
         elif model_type == 'efficientnet-b3':
-            self.basemodel = EfficientNet.from_pretrained('efficientnet-b3')
+            self.basemodel = EfficientNet.from_pretrained('efficientnet-b3', advprop=True)
+            self.feature_size = 1536
         elif model_type == 'efficientnet-b4':
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b4')
+            self.feature_size = 2048
         elif model_type == 'efficientnet-b5':
-            self.basemodel = EfficientNet.from_pretrained('efficientnet-b5')
+            self.basemodel = EfficientNet.from_pretrained('efficientnet-b5', advprop=True)
+            self.feature_size = 2048
         elif model_type == 'efficientnet-b6':
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b6')
+            self.feature_size = 2048
         elif model_type == 'efficientnet-b7':
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b7')
+            self.feature_size = 2048
         elif model_type == 'efficientnet-b8':
             self.basemodel = EfficientNet.from_pretrained('efficientnet-b8')
+            self.feature_size = 2048
         else:
             raise NotImplementedError
         
@@ -89,7 +102,7 @@ class BengaliaiNet(nn.Module):
         self.dropout = nn.Dropout(0.25)
     
         self.logits = nn.ModuleList(
-            [ nn.Linear(2048, c) for c in self.n_classes ]
+            [ nn.Linear(self.feature_size, c) for c in self.n_classes ]
         )
         
     def forward(self, x):
@@ -147,9 +160,9 @@ class BengaliaiNet(nn.Module):
 def test_Net():
     print("------------------------testing Net----------------------")
 
-    x = torch.tensor(np.random.random((224, 3, 128, 128)).astype(np.float32)).cuda()
+    x = torch.tensor(np.random.random((144, 3, 224, 224)).astype(np.float32)).cuda()
     model = BengaliaiNet().cuda()
-    # model = amp.initialize(model, opt_level="O1")
+    model = amp.initialize(model, opt_level="O1")
 
     logits = model(x)
     print(logits[0], logits[1], logits[2], logits[3])
