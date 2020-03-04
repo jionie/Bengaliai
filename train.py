@@ -30,6 +30,7 @@ from dataset.dataset import *
 
 # import utils
 from utils.ranger import *
+from utils.Radam import *
 from utils.lrs_scheduler import * 
 from utils.transformers_lr_scheduler import * 
 from utils.loss_function import *
@@ -89,14 +90,14 @@ parser.add_argument('--early_stopping', type=int, default=3, required=False, hel
 parser.add_argument('--weight_grapheme_root', type=float, default=2, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_vowel_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_consonant_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
-parser.add_argument('--weight_grapheme', type=float, default=0.1, required=False, help="specify weight of loss for grapheme")
+parser.add_argument('--weight_grapheme', type=float, default=0., required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--alpha', default=0.4, type=float,
                     help='hyperparameter alpha for mixup')
-parser.add_argument('--beta', default=0.4, type=float,
+parser.add_argument('--beta', default=1, type=float,
                     help='hyperparameter beta for  cutmix')
-parser.add_argument('--cutmix_prob', default=0.4, type=float,
+parser.add_argument('--cutmix_prob', default=0.8, type=float,
                     help='cutmix probability')
-parser.add_argument('--mixup_prob', default=0.4, type=float,
+parser.add_argument('--mixup_prob', default=0.2, type=float,
                     help='mixup_prob probability')
 parser.add_argument('--apex', action='store_true', default=False, help='whether to use apex')
 
@@ -244,6 +245,8 @@ def training(
         optimizer = torch.optim.SGD(optimizer_grouped_parameters, momentum=0.5)
     elif optimizer_name == "Ranger":
         optimizer = Ranger(optimizer_grouped_parameters)
+    elif optimizer_name == "RAdam":
+        optimizer = RAdam(optimizer_grouped_parameters)
     elif optimizer_name == "AdamW":
         optimizer = AdamW(optimizer_grouped_parameters, eps=4e-5)
     elif optimizer_name == "FusedAdam":
@@ -272,7 +275,7 @@ def training(
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
     elif lr_scheduler_name == "ReduceLROnPlateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.25, patience=0, min_lr=1e-5)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=2, min_lr=1e-4)
         lr_scheduler_each_iter = False
     else:
         raise NotImplementedError
@@ -327,7 +330,7 @@ def training(
     
     for epoch in range(1, num_epoch+1):
         
-        # full training with cutmix and mixup after 50 epoch
+        # full training with cutmix and mixup after 30 epoch
         # if epoch > 20:
         #     if epoch < 40:
         #         if cutmix_prob != 0.5:

@@ -32,6 +32,25 @@ class Identity(nn.Module):
         
     def forward(self, x):
         return x
+    
+def l2_norm(input,axis=1):
+    norm = torch.norm(input,2,axis,True)
+    output = torch.div(input, norm)
+    return output
+
+class Swish(nn.Module):
+    def __init__(self):
+        super(Swish, self).__init__()
+    def forward(self, x):
+        return x * F.sigmoid(x)
+    
+class Mish(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        #inlining this saves 1 second per epoch (V100 GPU) vs having a temp x and then returning x(!)
+        return x *( torch.tanh(F.softplus(x)))
 
 
 ############################################ Define Net Class
@@ -99,10 +118,19 @@ class BengaliaiNet(nn.Module):
             GeM() for _ in range(len(self.n_classes))
         ])
     
-        self.dropout = nn.Dropout(0.25)
+        # self.dropout = nn.Dropout(0.5)
     
+        # self.logits = nn.ModuleList(
+        #     [ nn.Sequential(nn.Dropout(0.25), nn.BatchNorm1d(self.feature_size), nn.Linear(self.feature_size, 512), Mish(), \
+        #       nn.Dropout(0.25), nn.BatchNorm1d(512), nn.Linear(512, c)) for c in self.n_classes ]
+        # )
+        
+        self.tail = nn.ModuleList([
+             nn.Sequential(Mish(), nn.Conv2d(self.feature_size, 512, 1), nn.Dropout(0.2), nn.BatchNorm2d(512)) for _ in self.n_classes 
+        ])
+        
         self.logits = nn.ModuleList(
-            [ nn.Linear(self.feature_size, c) for c in self.n_classes ]
+            [ nn.Linear(512, c) for c in self.n_classes ]
         )
         
     def forward(self, x):
@@ -141,12 +169,12 @@ class BengaliaiNet(nn.Module):
         # 4 tasks
         logits = []
         
-        for i, avg_pooling in enumerate(self.avg_poolings):
+        for i in range(len(self.n_classes)):
             
-            logit = avg_pooling(x)
+            logit = self.tail[i](x)
+            logit = self.avg_poolings[i](logit)
             logit = logit.view(bs, -1)
         
-            logit = self.dropout(logit)
             logits.append(self.logits[i](logit))
         
         

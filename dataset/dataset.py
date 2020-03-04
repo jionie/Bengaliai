@@ -59,7 +59,7 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 224, 224
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 128, 128
 
 
 def bbox(img):
@@ -94,7 +94,7 @@ train_transform = albumentations.Compose([
     albumentations.Rotate(limit=30, p=0.5),
     albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0, p=0.5),
     albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.5),
-    albumentations.GridDistortion(distort_limit=0.3, p=0.5), 
+    # albumentations.GridDistortion(distort_limit=0.3, p=0.5), 
     ])
 
 
