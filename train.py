@@ -95,9 +95,9 @@ parser.add_argument('--alpha', default=0.4, type=float,
                     help='hyperparameter alpha for mixup')
 parser.add_argument('--beta', default=1, type=float,
                     help='hyperparameter beta for  cutmix')
-parser.add_argument('--cutmix_prob', default=0.8, type=float,
+parser.add_argument('--cutmix_prob', default=1, type=float,
                     help='cutmix probability')
-parser.add_argument('--mixup_prob', default=0.2, type=float,
+parser.add_argument('--mixup_prob', default=0., type=float,
                     help='mixup_prob probability')
 parser.add_argument('--apex', action='store_true', default=False, help='whether to use apex')
 
@@ -275,7 +275,7 @@ def training(
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
     elif lr_scheduler_name == "ReduceLROnPlateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=2, min_lr=1e-4)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=1, min_lr=1e-4)
         lr_scheduler_each_iter = False
     else:
         raise NotImplementedError
@@ -429,8 +429,8 @@ def training(
                     cut_h = np.int(H * cut_rat)
 
                     # uniform
-                    cx = np.random.randint(W)
-                    cy = np.random.randint(H)
+                    cx = np.random.randint(W//4, W//4 + W//2)
+                    cy = np.random.randint(H//4, H//4 + H//2)
 
                     bbx1 = np.clip(cx - cut_w // 2, 0, W)
                     bby1 = np.clip(cy - cut_h // 2, 0, H)

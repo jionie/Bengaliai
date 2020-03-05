@@ -55,7 +55,7 @@ class Mish(nn.Module):
 
 ############################################ Define Net Class
 class BengaliaiNet(nn.Module):
-    def __init__(self, model_type="efficientnet-b1", n_classes=[168, 11, 7, 1295]):
+    def __init__(self, model_type="efficientnet-b3", n_classes=[168, 11, 7, 1295]):
         super(BengaliaiNet, self).__init__()
         self.model_type = model_type
         self.n_classes = n_classes
@@ -126,7 +126,7 @@ class BengaliaiNet(nn.Module):
         # )
         
         self.tail = nn.ModuleList([
-             nn.Sequential(Mish(), nn.Conv2d(self.feature_size, 512, 1), nn.Dropout(0.2), nn.BatchNorm2d(512)) for _ in self.n_classes 
+             nn.Sequential(Mish(), nn.Conv2d(self.feature_size, 512, 1), nn.BatchNorm2d(512)) for _ in self.n_classes 
         ])
         
         self.logits = nn.ModuleList(
@@ -188,7 +188,7 @@ class BengaliaiNet(nn.Module):
 def test_Net():
     print("------------------------testing Net----------------------")
 
-    x = torch.tensor(np.random.random((144, 3, 224, 224)).astype(np.float32)).cuda()
+    x = torch.tensor(np.random.random((128, 3, 137, 236)).astype(np.float32)).cuda()
     model = BengaliaiNet().cuda()
     model = amp.initialize(model, opt_level="O1")
 
