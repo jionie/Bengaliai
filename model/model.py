@@ -51,11 +51,75 @@ class Mish(nn.Module):
     def forward(self, x):
         #inlining this saves 1 second per epoch (V100 GPU) vs having a temp x and then returning x(!)
         return x *( torch.tanh(F.softplus(x)))
+    
+class BasicConv2d(nn.Module):
+    
+    def __init__(self, in_channels, out_channels, **kwargs):
+        super(BasicConv2d, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, bias=False, **kwargs)
+        self.bn = nn.BatchNorm2d(out_channels, eps=0.001)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        return F.relu(x, inplace=True)
+    
+    
+class MishConv2d(nn.Module):
+    
+    def __init__(self, in_channels, out_channels, **kwargs):
+        super(MishConv2d, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, bias=False, **kwargs)
+        self.bn = nn.BatchNorm2d(out_channels, eps=0.001)
+        self.mish = Mish()
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        return self.mish(x)
+    
+    
+class InceptionA(nn.Module):
+    
+    def __init__(self, in_channels, pool_features, conv_block=None):
+        super(InceptionA, self).__init__()
+        if conv_block is None:
+            conv_block = BasicConv2d
+        self.branch1x1 = conv_block(in_channels, 64, kernel_size=1)
+
+        self.branch5x5_1 = conv_block(in_channels, 48, kernel_size=1)
+        self.branch5x5_2 = conv_block(48, 64, kernel_size=5, padding=2)
+
+        self.branch3x3dbl_1 = conv_block(in_channels, 64, kernel_size=1)
+        self.branch3x3dbl_2 = conv_block(64, 96, kernel_size=3, padding=1)
+        self.branch3x3dbl_3 = conv_block(96, 96, kernel_size=3, padding=1)
+
+        self.branch_pool = conv_block(in_channels, pool_features, kernel_size=1)
+
+    def _forward(self, x):
+        branch1x1 = self.branch1x1(x)
+
+        branch5x5 = self.branch5x5_1(x)
+        branch5x5 = self.branch5x5_2(branch5x5)
+
+        branch3x3dbl = self.branch3x3dbl_1(x)
+        branch3x3dbl = self.branch3x3dbl_2(branch3x3dbl)
+        branch3x3dbl = self.branch3x3dbl_3(branch3x3dbl)
+
+        branch_pool = F.avg_pool2d(x, kernel_size=3, stride=1, padding=1)
+        branch_pool = self.branch_pool(branch_pool)
+
+        outputs = [branch1x1, branch5x5, branch3x3dbl, branch_pool]
+        return outputs
+
+    def forward(self, x):
+        outputs = self._forward(x)
+        return torch.cat(outputs, 1)
 
 
 ############################################ Define Net Class
 class BengaliaiNet(nn.Module):
-    def __init__(self, model_type="efficientnet-b3", n_classes=[168, 11, 7, 1295]):
+    def __init__(self, model_type="seresnext50", n_classes=[168, 11, 7, 1295]):
         super(BengaliaiNet, self).__init__()
         self.model_type = model_type
         self.n_classes = n_classes
@@ -63,7 +127,7 @@ class BengaliaiNet(nn.Module):
         if model_type == "ResNet34":
             self.basemodel = ptcv_get_model("resnet34", pretrained=True)
             self.basemodel.features.final_pool = Identity()
-            self.feature_size = 2048
+            self.feature_size = 512
         elif model_type == "seresnext50":
             self.basemodel = ptcv_get_model("seresnext50_32x4d", pretrained=True)
             self.basemodel.features.final_pool = Identity()
@@ -114,9 +178,9 @@ class BengaliaiNet(nn.Module):
         #         modules[name] = module
             
             
-        self.avg_poolings = nn.ModuleList([
-            GeM() for _ in range(len(self.n_classes))
-        ])
+        # self.avg_poolings = nn.ModuleList([
+        #     GeM() for _ in range(len(self.n_classes))
+        # ])
     
         # self.dropout = nn.Dropout(0.5)
     
@@ -125,17 +189,37 @@ class BengaliaiNet(nn.Module):
         #       nn.Dropout(0.25), nn.BatchNorm1d(512), nn.Linear(512, c)) for c in self.n_classes ]
         # )
         
+        # self.head  = nn.Sequential(
+        #     BasicConv2d(3, 64, kernel_size=5, stride=1, padding=2), #bias=0
+        #     BasicConv2d(64, 64, kernel_size=3, stride=1, padding=1), #bias=0
+        #     BasicConv2d(64, 3, kernel_size=3, stride=1, padding=1), #bias=0
+        # )
+        
+        self.head = nn.Sequential(
+            InceptionA(3, 32), # (bs, 64+64+96+32, H, W)
+            BasicConv2d(64+64+96+32, 3, kernel_size=1, stride=1, padding=0), #bias=0
+        )
+        
+        # self.tail = nn.ModuleList([
+        #      nn.Sequential(Mish(), MishConv2d(self.feature_size, 512, kernel_size=1)) for _ in self.n_classes 
+        # ])
+        
         self.tail = nn.ModuleList([
-             nn.Sequential(Mish(), nn.Conv2d(self.feature_size, 512, 1), nn.BatchNorm2d(512)) for _ in self.n_classes 
+            nn.Sequential(Mish(), MishConv2d(self.feature_size, 1024, kernel_size=1), MishConv2d(1024, 512, kernel_size=1)), \
+            nn.Sequential(Mish(), MishConv2d(self.feature_size, 512, kernel_size=1)), \
+            nn.Sequential(Mish(), MishConv2d(self.feature_size, 512, kernel_size=1)), \
+            nn.Sequential(Mish(), MishConv2d(self.feature_size, 1024, kernel_size=1), MishConv2d(1024, 512, kernel_size=1))
         ])
         
         self.logits = nn.ModuleList(
-            [ nn.Linear(512, c) for c in self.n_classes ]
+            [ nn.Linear(20480, c) for c in self.n_classes ]
         )
         
     def forward(self, x):
         
         bs = x.shape[0]
+        
+        x = self.head(x)
         
         if self.model_type == "ResNet34":
             x = self.basemodel.features(x)
@@ -172,7 +256,8 @@ class BengaliaiNet(nn.Module):
         for i in range(len(self.n_classes)):
             
             logit = self.tail[i](x)
-            logit = self.avg_poolings[i](logit)
+            # print(logit.shape)
+            # logit = self.avg_poolings[i](logit)
             logit = logit.view(bs, -1)
         
             logits.append(self.logits[i](logit))
@@ -188,7 +273,7 @@ class BengaliaiNet(nn.Module):
 def test_Net():
     print("------------------------testing Net----------------------")
 
-    x = torch.tensor(np.random.random((128, 3, 137, 236)).astype(np.float32)).cuda()
+    x = torch.tensor(np.random.random((256, 3, 137, 236)).astype(np.float32)).cuda()
     model = BengaliaiNet().cuda()
     model = amp.initialize(model, opt_level="O1")
 
@@ -198,7 +283,21 @@ def test_Net():
 
     return
 
+def test_Net_eval():
+    print("------------------------testing Net----------------------")
+    with torch.no_grad():
+        x = torch.tensor(np.random.random((64, 3, 137, 236)).astype(np.float32)).cuda()
+        model = BengaliaiNet().cuda().eval()
+        model = amp.initialize(model, opt_level="O1")
+
+        logits = model(x)
+        print(logits[0], logits[1], logits[2], logits[3])
+    print("------------------------testing Net finished----------------------")
+
+    return
+
 
 if __name__ == "__main__":
     print("------------------------testing Net----------------------")
-    test_Net()
+    # test_Net()
+    test_Net_eval()

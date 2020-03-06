@@ -93,13 +93,15 @@ parser.add_argument('--weight_consonant_diacritic', type=float, default=1, requi
 parser.add_argument('--weight_grapheme', type=float, default=0., required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--alpha', default=0.4, type=float,
                     help='hyperparameter alpha for mixup')
-parser.add_argument('--beta', default=1, type=float,
+parser.add_argument('--beta', default=0.4, type=float,
                     help='hyperparameter beta for  cutmix')
 parser.add_argument('--cutmix_prob', default=1, type=float,
                     help='cutmix probability')
 parser.add_argument('--mixup_prob', default=0., type=float,
                     help='mixup_prob probability')
 parser.add_argument('--apex', action='store_true', default=False, help='whether to use apex')
+parser.add_argument('--freeze_first', action='store_true', default=False, help='whether to freeze backbone first')
+parser.add_argument('--freeze_epoches', default=5, type=float, help='num of epoches for freezing backbone')
 
 
 
@@ -154,7 +156,9 @@ def training(
             alpha,
             cutmix_prob, 
             mixup_prob, 
-            apex
+            apex,
+            freeze_first,
+            freeze_epoches
             ):
     
     torch.cuda.empty_cache()
@@ -228,7 +232,12 @@ def training(
         model = load(model, checkpoint_filepath)
 
     ############################################################################### optimizer
-    param_optimizer = list(model.named_parameters())
+    # param_optimizer = list(model.parameters())
+    # param_optimizer = list(model.named_parameters())
+    if freeze_first:
+        param_optimizer = list(model.head.named_parameters()) + list(model.tail.named_parameters()) + list(model.logits.named_parameters())
+    else:
+        param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
     optimizer_grouped_parameters = [
         {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], \
@@ -275,7 +284,7 @@ def training(
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
     elif lr_scheduler_name == "ReduceLROnPlateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=1, min_lr=1e-4)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=3, min_lr=1e-4)
         lr_scheduler_each_iter = False
     else:
         raise NotImplementedError
@@ -330,23 +339,15 @@ def training(
     
     for epoch in range(1, num_epoch+1):
         
-        # full training with cutmix and mixup after 30 epoch
-        # if epoch > 20:
-        #     if epoch < 40:
-        #         if cutmix_prob != 0.5:
-        #             cutmix_prob = 0.5
-        #         if mixup_prob != 0.5:
-        #             mixup_prob = 0.5
-        #     else:
-        #         if cutmix_prob != 1:
-        #             cutmix_prob = 1
-        #         if mixup_prob != 0:
-        #             mixup_prob = 0
-                    
-        # if epoch > 15:
-        #     if weight_grapheme != 0.1:
-        #         weight_grapheme = 0.1
-        
+        if freeze_first:
+            # if epoch < freeze_epoches:
+            #     for param_group in optimizer.param_groups:
+            #         param_group['lr'] = 1e-4
+            
+            if epoch == freeze_epoches:
+                optimizer.add_param_group({'params': model.basemodel.parameters()})
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = lr
 
         # init in-epoch statistics
         grapheme_root_train = []
@@ -899,7 +900,9 @@ if __name__ == "__main__":
             args.alpha, \
             args.cutmix_prob, \
             args.mixup_prob, \
-            args.apex)
+            args.apex, \
+            args.freeze_first, \
+            args.freeze_epoches)
 
     gc.collect()
 

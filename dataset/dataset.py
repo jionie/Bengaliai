@@ -60,7 +60,7 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 32, 56
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 137, 236
 
 def bbox(img):
     rows = np.any(img, axis=1)
