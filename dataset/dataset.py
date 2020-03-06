@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import random
 from math import floor, ceil
+import copy
 
 import cv2
 from PIL import Image
@@ -59,7 +60,7 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 137, 236
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 32, 56
 
 def bbox(img):
     rows = np.any(img, axis=1)
@@ -89,7 +90,7 @@ def crop_resize(img0, size=IMAGE_HEIGHT_RESIZE, pad=16):
 
 ############################## Prapare Augmentation
 train_transform = albumentations.Compose([
-    # albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
+    albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
     albumentations.Rotate(limit=30, p=0.5),
     albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0, p=0.5),
     albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.5),
@@ -122,18 +123,21 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         self.labeled = labeled
         self.transform = transform
         self.image_df = pd.concat([pd.read_parquet(os.path.join(data_path, f'train_image_data_{i}.parquet')) for i in range(4)]).reindex()
-        self.image_df.iloc[:, 1:] = self.image_df.iloc[:, 1:].astype(np.uint8)
+        
         if self.labeled:
             self.uid = self.df['image_id'].values
         else:
             # we don't need to spilt
             self.uid = self.image_df['image_id'].values
-        # self.image = self.image_df.drop('image_id', axis=1).values.astype(np.uint8)
+        self.images = self.image_df.drop('image_id', axis=1).values.astype(np.uint8)
     
         self.grapheme_root_labels_dict = grapheme_root_labels_dict
         self.vowel_diacritic_labels_dict = vowel_diacritic_labels_dict
         self.consonant_diacritic_labels_dict = consonant_diacritic_labels_dict
         self.grapheme_labels_dict = grapheme_labels_dict
+        
+        del self.image_df
+        gc.collect()
         
 
     def __len__(self):
@@ -142,9 +146,16 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         
         image_id = self.uid[idx]
-        # image = self.image[idx].copy().reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
-        image = \
-            self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
+        
+        if self.mode == "train" or self.mode == "val":
+            image_idx = int(image_id[6:])
+        else:
+            image_idx = int(image_id[5:])
+            
+        # print(image_id, image_idx)
+        image = self.images[image_idx].reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
+        # image = \
+        #     self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
             
         image = 255 - image
         # image = crop_resize(image)
