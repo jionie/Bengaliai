@@ -78,6 +78,18 @@ class MishConv2d(nn.Module):
         x = self.bn(x)
         return self.mish(x)
     
+class Conv2dBN(nn.Module):
+    
+    def __init__(self, in_channels, out_channels, **kwargs):
+        super(Conv2dBN, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, bias=False, **kwargs)
+        self.bn = nn.BatchNorm2d(out_channels, eps=0.001)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        return x
+    
     
 class InceptionA(nn.Module):
     
@@ -178,9 +190,9 @@ class BengaliaiNet(nn.Module):
         #         modules[name] = module
             
             
-        # self.avg_poolings = nn.ModuleList([
-        #     GeM() for _ in range(len(self.n_classes))
-        # ])
+        self.avg_poolings = nn.ModuleList([
+            GeM() for _ in range(len(self.n_classes))
+        ])
     
         # self.dropout = nn.Dropout(0.5)
     
@@ -201,25 +213,29 @@ class BengaliaiNet(nn.Module):
         )
         
         # self.tail = nn.ModuleList([
-        #      nn.Sequential(Mish(), MishConv2d(self.feature_size, 512, kernel_size=1)) for _ in self.n_classes 
+        #      nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)) for _ in self.n_classes 
         # ])
         
         self.tail = nn.ModuleList([
-            nn.Sequential(Mish(), MishConv2d(self.feature_size, 1024, kernel_size=1), MishConv2d(1024, 512, kernel_size=1)), \
-            nn.Sequential(Mish(), MishConv2d(self.feature_size, 512, kernel_size=1)), \
-            nn.Sequential(Mish(), MishConv2d(self.feature_size, 512, kernel_size=1)), \
-            nn.Sequential(Mish(), MishConv2d(self.feature_size, 1024, kernel_size=1), MishConv2d(1024, 512, kernel_size=1))
+            nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
+            nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
+            nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
+            nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1))
         ])
         
+        # self.logits = nn.ModuleList(
+        #     [ nn.Linear(4096, c) for c in self.n_classes ]
+        # )
+        
         self.logits = nn.ModuleList(
-            [ nn.Linear(20480, c) for c in self.n_classes ]
+            [ nn.Linear(512, c) for c in self.n_classes ]
         )
         
     def forward(self, x):
         
         bs = x.shape[0]
         
-        x = self.head(x)
+        # x = self.head(x)
         
         if self.model_type == "ResNet34":
             x = self.basemodel.features(x)
@@ -257,7 +273,7 @@ class BengaliaiNet(nn.Module):
             
             logit = self.tail[i](x)
             # print(logit.shape)
-            # logit = self.avg_poolings[i](logit)
+            logit = self.avg_poolings[i](logit)
             logit = logit.view(bs, -1)
         
             logits.append(self.logits[i](logit))
@@ -273,7 +289,7 @@ class BengaliaiNet(nn.Module):
 def test_Net():
     print("------------------------testing Net----------------------")
 
-    x = torch.tensor(np.random.random((256, 3, 137, 236)).astype(np.float32)).cuda()
+    x = torch.tensor(np.random.random((800, 3, 64, 112)).astype(np.float32)).cuda()
     model = BengaliaiNet().cuda()
     model = amp.initialize(model, opt_level="O1")
 
@@ -299,5 +315,5 @@ def test_Net_eval():
 
 if __name__ == "__main__":
     print("------------------------testing Net----------------------")
-    # test_Net()
-    test_Net_eval()
+    test_Net()
+    # test_Net_eval()

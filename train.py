@@ -70,7 +70,7 @@ parser.add_argument('--save_path', type=str, default="/media/jionie/my_disk/Kagg
 parser.add_argument('--Balanced', type=str, default="None", \
     required=False, help='specify the DataSampler')
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
-parser.add_argument('--optimizer', type=str, default='SGD', required=False, help='specify the optimizer')
+parser.add_argument('--optimizer', type=str, default='RAdam', required=False, help='specify the optimizer')
 parser.add_argument("--lr_scheduler", type=str, default='ReduceLROnPlateau', required=False, help="specify the lr scheduler")
 parser.add_argument("--warmup_proportion",  type=float, default=0.05, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
@@ -90,10 +90,10 @@ parser.add_argument('--early_stopping', type=int, default=3, required=False, hel
 parser.add_argument('--weight_grapheme_root', type=float, default=2, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_vowel_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--weight_consonant_diacritic', type=float, default=1, required=False, help="specify weight of loss for grapheme")
-parser.add_argument('--weight_grapheme', type=float, default=0., required=False, help="specify weight of loss for grapheme")
+parser.add_argument('--weight_grapheme', type=float, default=0.1, required=False, help="specify weight of loss for grapheme")
 parser.add_argument('--alpha', default=0.4, type=float,
                     help='hyperparameter alpha for mixup')
-parser.add_argument('--beta', default=0.4, type=float,
+parser.add_argument('--beta', default=1, type=float,
                     help='hyperparameter beta for  cutmix')
 parser.add_argument('--cutmix_prob', default=1, type=float,
                     help='cutmix probability')
@@ -284,7 +284,7 @@ def training(
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
     elif lr_scheduler_name == "ReduceLROnPlateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=3, min_lr=1e-4)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=num_epoch, min_lr=1e-4)
         lr_scheduler_each_iter = False
     else:
         raise NotImplementedError
@@ -348,6 +348,10 @@ def training(
                 optimizer.add_param_group({'params': model.basemodel.parameters()})
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = lr
+                    
+        if (epoch + 1) % 10 == 0:          
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr / 1.5
 
         # init in-epoch statistics
         grapheme_root_train = []
@@ -430,8 +434,8 @@ def training(
                     cut_h = np.int(H * cut_rat)
 
                     # uniform
-                    cx = np.random.randint(W//4, W//4 + W//2)
-                    cy = np.random.randint(H//4, H//4 + H//2)
+                    cx = np.random.randint(W//2 - W//4, W//2 + W//4)
+                    cy = np.random.randint(H//2 - H//4, H//2 + H//4)
 
                     bbx1 = np.clip(cx - cut_w // 2, 0, W)
                     bby1 = np.clip(cy - cut_h // 2, 0, H)

@@ -60,7 +60,7 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 137, 236
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 64, 112
 
 def bbox(img):
     rows = np.any(img, axis=1)
@@ -94,7 +94,7 @@ train_transform = albumentations.Compose([
     albumentations.Rotate(limit=30, p=0.5),
     albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0, p=0.5),
     albumentations.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.1, rotate_limit=5, p=0.5),
-    # albumentations.GridDistortion(distort_limit=0.3, p=0.5), 
+    albumentations.GridDistortion(distort_limit=0.3, p=0.5), 
     ])
 
 
@@ -167,11 +167,11 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         
         image = np.float32(image)
         
-        # if (self.mode == 'train'):
-            # for op in np.random.choice([
-            #     lambda image : do_identity(image),
-            #     lambda image : do_random_projective(image, 0.3),
-            #     lambda image : do_random_perspective(image, 0.3),
+        if (self.mode == 'train'):
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_projective(image, 0.3),
+                lambda image : do_random_perspective(image, 0.3),
                 # lambda image : do_random_scale(image, 0.4),
                 # lambda image : do_random_rotate(image, 0.4),
                 # lambda image : do_random_shear_x(image, 0.5),
@@ -180,8 +180,8 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
                 # lambda image : do_random_stretch_y(image, 0.5),
                 # lambda image : do_random_grid_distortion(image, 0.4),
                 # lambda image : do_random_custom_distortion1(image, 0.5),
-            # ],1):
-            #     image = op(image)
+            ],1):
+                image = op(image)
 
             # for op in np.random.choice([
             #     lambda image : do_identity(image),
@@ -202,7 +202,7 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         if not (self.transform is None):
             
             image = self.transform(image=np.float32(image))['image']
-            
+        
         image = np.repeat(np.expand_dims(image, axis=0), 3, axis=0).astype(np.float32)
         image = image / 255
         

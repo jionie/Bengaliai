@@ -25,7 +25,7 @@ class FocalOnehotLoss(nn.Module):
         if self.reduction == "mean":
             loss = loss.mean()
         elif self.reduction == "sum":
-            loss = loss.mean()
+            loss = loss.sum()
         elif self.reduction == "none":
             loss = loss
         else:
@@ -46,7 +46,7 @@ class CrossEntropyOnehotLoss(nn.Module):
         if self.reduction == "mean":
             loss = loss.mean()
         elif self.reduction == "sum":
-            loss = loss.mean()
+            loss = loss.sum()
         elif self.reduction == "none":
             loss = loss
         else:
