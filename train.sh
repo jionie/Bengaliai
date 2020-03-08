@@ -1,12 +1,12 @@
-python train.py --n_splits 5 --seed 12 --fold 0 --model_type "seresnext50" --loss "ceonehotohem" --lr 4e-4 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 16 --early_stopping 20 --apex
+# python train.py --n_splits 5 --seed 12 --fold 0 --model_type "seresnext50" --loss "ceonehotohem" --lr 1e-3 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 14 --early_stopping 20 --apex --load_pretrain --start_epoch 76
+ 
+# python train.py --n_splits 5 --seed 12 --fold 1 --model_type "seresnext50" --loss "ceonehotohem" --lr 1e-3 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 14 --early_stopping 20 --apex 
 
-python train.py --n_splits 5 --seed 12 --fold 1 --model_type "seresnext50" --loss "ceonehotohem" --lr 4e-4 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 16 --early_stopping 20 --apex
+# python train.py --n_splits 5 --seed 12 --fold 2 --model_type "seresnext50" --loss "ceonehotohem" --lr 1e-3 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 14 --early_stopping 20 --apex 
 
-python train.py --n_splits 5 --seed 12 --fold 2 --model_type "seresnext50" --loss "ceonehotohem" --lr 4e-4 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 16 --early_stopping 20 --apex 
+# python train.py --n_splits 5 --seed 12 --fold 3 --model_type "seresnext50" --loss "ceonehotohem" --lr 1e-3 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 14 --early_stopping 20 --apex
 
-python train.py --n_splits 5 --seed 12 --fold 3 --model_type "seresnext50" --loss "ceonehotohem" --lr 4e-4 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 16 --early_stopping 20 --apex
-
-python train.py --n_splits 5 --seed 12 --fold 4 --model_type "seresnext50" --loss "ceonehotohem" --lr 4e-4 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 16 --early_stopping 20 --apex
+# python train.py --n_splits 5 --seed 12 --fold 4 --model_type "seresnext50" --loss "ceonehotohem" --lr 1e-3 --num_epoch 100 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 14 --early_stopping 20 --apex
 
 
 # python train.py --n_splits 10 --seed 1997 --fold 0 --model_type "efficientnet-b1" --loss "ceonehotohem" --lr 1e-1 --num_epoch 100 --batch_size 320 --valid_batch_size 400 --accumulation_steps 1 --num_workers 12 --early_stopping 20 --apex 

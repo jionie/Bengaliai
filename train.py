@@ -11,6 +11,7 @@ import numpy as np
 from functools import partial
 
 # import pytorch related libraries
+import torchcontrib
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -71,7 +72,7 @@ parser.add_argument('--Balanced', type=str, default="None", \
     required=False, help='specify the DataSampler')
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
 parser.add_argument('--optimizer', type=str, default='RAdam', required=False, help='specify the optimizer')
-parser.add_argument("--lr_scheduler", type=str, default='ReduceLROnPlateau', required=False, help="specify the lr scheduler")
+parser.add_argument("--lr_scheduler", type=str, default='OneCycleLR', required=False, help="specify the lr scheduler")
 parser.add_argument("--warmup_proportion",  type=float, default=0.05, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
 parser.add_argument("--lr", type=float, default=4e-3, required=False, help="specify the initial learning rate for training")
@@ -250,19 +251,30 @@ def training(
 
     if optimizer_name == "Adam":
         optimizer = torch.optim.Adam(optimizer_grouped_parameters)
+        min_lr = 1e-4
     elif optimizer_name == "SGD":
         optimizer = torch.optim.SGD(optimizer_grouped_parameters, momentum=0.5)
+        min_lr = 1e-2
     elif optimizer_name == "Ranger":
         optimizer = Ranger(optimizer_grouped_parameters)
+        min_lr = 1e-4
     elif optimizer_name == "RAdam":
         optimizer = RAdam(optimizer_grouped_parameters)
+        min_lr = 1e-4
     elif optimizer_name == "AdamW":
         optimizer = AdamW(optimizer_grouped_parameters, eps=4e-5)
+        min_lr = 1e-4
     elif optimizer_name == "FusedAdam":
         optimizer = FusedAdam(optimizer_grouped_parameters,
                               bias_correction=False)
+        min_lr = 1e-4
     else:
         raise NotImplementedError
+    
+    # add swa 
+    # optimizer = torchcontrib.optim.SWA(optimizer, swa_start=int(len(train_data_loader) / 10), \
+    #     swa_freq=int(len(train_data_loader) / 10), swa_lr=0.05)
+    # optimizer = torchcontrib.optim.SWA(optimizer)
     
     ############################################################################### lr_scheduler   
     if lr_scheduler_name == "WarmupCosineAnealing":
@@ -284,8 +296,20 @@ def training(
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
     elif lr_scheduler_name == "ReduceLROnPlateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=num_epoch, min_lr=1e-4)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=3, min_lr=min_lr)
         lr_scheduler_each_iter = False
+    elif lr_scheduler_name == "OneCycleLR":
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, lr, total_steps=None, epochs=num_epoch, \
+            steps_per_epoch=int(len(train_data_loader)/accumulation_steps), \
+            pct_start=0.3, anneal_strategy='cos', cycle_momentum=True, \
+            base_momentum=0.85, max_momentum=0.95, div_factor=25.0, final_div_factor=10000.0, last_epoch=-1)
+        lr_scheduler_each_iter = True
+    elif lr_scheduler_name == "CycleLR":
+        step_size = len(train_data_loader)*5/(accumulation_steps)
+        base_lr, max_lr = lr/6, lr 
+        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=base_lr, max_lr=max_lr, step_size_up=step_size,
+                    mode='exp_range', gamma=0.99994)
+        lr_scheduler_each_iter = True
     else:
         raise NotImplementedError
 
@@ -339,6 +363,9 @@ def training(
     
     for epoch in range(1, num_epoch+1):
         
+        # init cache
+        torch.cuda.empty_cache()
+        
         if freeze_first:
             # if epoch < freeze_epoches:
             #     for param_group in optimizer.param_groups:
@@ -349,9 +376,9 @@ def training(
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = lr
                     
-        if (epoch + 1) % 10 == 0:          
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr / 1.5
+        # if (epoch + 1) % 10 == 0:          
+        #     for param_group in optimizer.param_groups:
+        #         param_group['lr'] = lr / 1.5
 
         # init in-epoch statistics
         grapheme_root_train = []
@@ -533,6 +560,8 @@ def training(
             if ((tr_batch_i+1) % accumulation_steps == 0):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0, norm_type=2)
                 optimizer.step()
+                # if (tr_batch_i+1) > int(len(train_data_loader) / 10) and (tr_batch_i+1) % int(len(train_data_loader) / 5) == 0:
+                #     optimizer.update_swa()
                 model.zero_grad()
                 # adjust lr
                 if (lr_scheduler_each_iter):
@@ -640,6 +669,10 @@ def training(
                         grapheme_recall_train))
             
             if (tr_batch_i + 1) % eval_step == 0:  
+                
+                # finish training then update swa
+                # optimizer.bn_update(train_data_loader, model)
+                # optimizer.swap_swa_sgd()
                 
                 eval_count += 1
                 
@@ -817,7 +850,7 @@ def training(
                                 grapheme_root_recall_decode_val, \
                                 vowel_diacritic_recall_decode_val, \
                                 consonant_diacritic_recall_decode_val))
-
+        
         val_metric_epoch = average_recall_val
         # scheduler lr by metric
         if lr_scheduler_name == "ReduceLROnPlateau":
