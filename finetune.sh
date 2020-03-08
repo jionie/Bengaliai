@@ -1,0 +1,2 @@
+python finetune.py --n_splits 5 --seed 12 --fold 0 --model_type "seresnext50" --loss "ceonehotohem" --lr 2e-1 --num_epoch 50 --batch_size 768 --valid_batch_size 3200 --accumulation_steps 1 --num_workers 14 --early_stopping 20 --apex --load_pretrain
+ 
