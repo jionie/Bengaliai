@@ -71,8 +71,8 @@ parser.add_argument('--save_path', type=str, default="/media/jionie/my_disk/Kagg
 parser.add_argument('--Balanced', type=str, default="None", \
     required=False, help='specify the DataSampler')
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
-parser.add_argument('--optimizer', type=str, default='SGD', required=False, help='specify the optimizer')
-parser.add_argument("--lr_scheduler", type=str, default='CycleLR', required=False, help="specify the lr scheduler")
+parser.add_argument('--optimizer', type=str, default='RAdam', required=False, help='specify the optimizer')
+parser.add_argument("--lr_scheduler", type=str, default='None', required=False, help="specify the lr scheduler")
 parser.add_argument("--warmup_proportion",  type=float, default=0.05, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
 parser.add_argument("--lr", type=float, default=4e-3, required=False, help="specify the initial learning rate for training")
@@ -96,7 +96,7 @@ parser.add_argument('--alpha', default=0.4, type=float,
                     help='hyperparameter alpha for mixup')
 parser.add_argument('--beta', default=1, type=float,
                     help='hyperparameter beta for  cutmix')
-parser.add_argument('--cutmix_prob', default=0.5, type=float,
+parser.add_argument('--cutmix_prob', default=1, type=float,
                     help='cutmix probability')
 parser.add_argument('--mixup_prob', default=0., type=float,
                     help='mixup_prob probability')
@@ -273,7 +273,7 @@ def training(
     
     # add swa 
     # optimizer = torchcontrib.optim.SWA(optimizer, swa_start=int(len(train_data_loader) / 10), \
-    #     swa_freq=int(len(train_data_loader) / 10), swa_lr=0.05)
+    #     swa_freq=int(len(train_data_loader) / 10), swa_lr=lr)
     # optimizer = torchcontrib.optim.SWA(optimizer)
     
     ############################################################################### lr_scheduler   
@@ -310,6 +310,9 @@ def training(
         scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=base_lr, max_lr=max_lr, step_size_up=step_size,
                     mode='exp_range', gamma=0.99994)
         lr_scheduler_each_iter = True
+    elif lr_scheduler_name == "None":
+        scheduler = None
+        lr_scheduler_each_iter = False
     else:
         raise NotImplementedError
 
@@ -355,9 +358,9 @@ def training(
     elif loss_type == 'ceonehot':
         criterion = CrossEntropyOnehotLoss()
     elif loss_type == "ceonehotohem":
-        criterion = CrossEntropyOnehotLossOHEM(top_k=0.75)
+        criterion = CrossEntropyOnehotLossOHEM(top_k=0.9)
     elif loss_type == "focalonehotohem":
-        criterion = FocalOnehotLossOHEM(top_k=0.75)
+        criterion = FocalOnehotLossOHEM(top_k=0.9)
     else:
         raise NotImplementedError
     
@@ -376,10 +379,6 @@ def training(
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = lr
                     
-        # if (epoch + 1) % 10 == 0:          
-        #     for param_group in optimizer.param_groups:
-        #         param_group['lr'] = lr / 1.5
-
         # init in-epoch statistics
         grapheme_root_train = []
         vowel_diacritic_train = []
@@ -393,17 +392,18 @@ def training(
       
         
         # update lr and start from start_epoch  
-        if lr_scheduler_each_iter:
-            if (epoch < start_epoch):
-                for _ in range(len(train_data_loader)):
+        if scheduler is not None:
+            if lr_scheduler_each_iter:
+                if (epoch < start_epoch):
+                    for _ in range(len(train_data_loader)):
+                        scheduler.step()
+                    continue
+                    
+            else:
+                if lr_scheduler_name != "ReduceLROnPlateau":
                     scheduler.step()
-                continue
-                
-        else:
-            if lr_scheduler_name != "ReduceLROnPlateau":
-                scheduler.step()
-            if (epoch < start_epoch):
-                continue
+                if (epoch < start_epoch):
+                    continue
         
         log.write("Epoch%s\n" % epoch)
         log.write('\n')
@@ -564,8 +564,9 @@ def training(
                 #     optimizer.update_swa()
                 model.zero_grad()
                 # adjust lr
-                if (lr_scheduler_each_iter):
-                    scheduler.step()
+                if scheduler is not None:
+                    if (lr_scheduler_each_iter):
+                        scheduler.step()
 
                 writer.add_scalar('train_loss_' + str(fold), loss.item(), (epoch-1)*len(train_data_loader)*batch_size+tr_batch_i*batch_size)
             
@@ -853,8 +854,9 @@ def training(
         
         val_metric_epoch = average_recall_val
         # scheduler lr by metric
-        if lr_scheduler_name == "ReduceLROnPlateau":
-            scheduler.step(val_metric_epoch)
+        if scheduler is not None:
+            if lr_scheduler_name == "ReduceLROnPlateau":
+                scheduler.step(val_metric_epoch)
 
         if (val_metric_epoch >= valid_metric_optimal):
             
