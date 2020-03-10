@@ -71,8 +71,8 @@ parser.add_argument('--save_path', type=str, default="/media/jionie/my_disk/Kagg
 parser.add_argument('--Balanced', type=str, default="None", \
     required=False, help='specify the DataSampler')
 parser.add_argument('--fold', type=int, default=0, required=False, help="specify the fold for training")
-parser.add_argument('--optimizer', type=str, default='RAdam', required=False, help='specify the optimizer')
-parser.add_argument("--lr_scheduler", type=str, default='OneCycleLR', required=False, help="specify the lr scheduler")
+parser.add_argument('--optimizer', type=str, default='SGD', required=False, help='specify the optimizer')
+parser.add_argument("--lr_scheduler", type=str, default='CycleLR', required=False, help="specify the lr scheduler")
 parser.add_argument("--warmup_proportion",  type=float, default=0.05, required=False, \
     help="Proportion of training to perform linear learning rate warmup for. " "E.g., 0.1 = 10%% of training.")
 parser.add_argument("--lr", type=float, default=4e-3, required=False, help="specify the initial learning rate for training")
@@ -230,7 +230,8 @@ def training(
     
     if load_pretrain:
         print("Load pretrain model")
-        model = load(model, checkpoint_filepath)
+        # model = load(model, checkpoint_filepath, skip=['avg_poolings.0.p', 'avg_poolings.1.p', 'avg_poolings.2.p', 'avg_poolings.3.p'])
+        model = load(model, checkpoint_filepath, skip=[])
 
     ############################################################################### optimizer
     # param_optimizer = list(model.parameters())
@@ -355,9 +356,9 @@ def training(
     elif loss_type == 'ceonehot':
         criterion = CrossEntropyOnehotLoss()
     elif loss_type == "ceonehotohem":
-        criterion = CrossEntropyOnehotLossOHEM(top_k=0.75)
+        criterion = CrossEntropyOnehotLossOHEM(top_k=0.5)
     elif loss_type == "focalonehotohem":
-        criterion = FocalOnehotLossOHEM(top_k=0.75)
+        criterion = FocalOnehotLossOHEM(top_k=0.5)
     else:
         raise NotImplementedError
     
@@ -474,6 +475,7 @@ def training(
                 # generate mixed sample
                 lam = np.random.beta(beta, beta)
                 rand_index = torch.randperm(image.shape[0]).cuda()
+                # shuffled_image = image[rand_index]
                 grapheme_root_a = grapheme_root
                 grapheme_root_b = grapheme_root[rand_index]
                 vowel_diacritic_a = vowel_diacritic

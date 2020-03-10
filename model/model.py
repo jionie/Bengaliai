@@ -292,7 +292,7 @@ def test_Net():
     x = torch.tensor(np.random.random((800, 3, 64, 112)).astype(np.float32)).cuda()
     model = BengaliaiNet().cuda()
     model = amp.initialize(model, opt_level="O1")
-
+    print(model.state_dict().keys())
     logits = model(x)
     print(logits[0], logits[1], logits[2], logits[3])
     print("------------------------testing Net finished----------------------")
