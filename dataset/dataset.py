@@ -60,7 +60,7 @@ parser.add_argument('--num_workers', type=int, default=0, \
 
 ############################################ Define constant
 IMAGE_HEIGHT, IMAGE_WIDTH = 137, 236
-IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 137, 236
+IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE = 128, 128
 
 def bbox(img):
     rows = np.any(img, axis=1)
@@ -92,7 +92,7 @@ def crop_resize(img0, size=IMAGE_HEIGHT_RESIZE, pad=16):
 train_transform = albumentations.Compose([
     albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
     albumentations.OneOf([
-        albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0),
+        # albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0),
         albumentations.ShiftScaleRotate(scale_limit=.15, rotate_limit=20, border_mode=cv2.BORDER_CONSTANT),
         albumentations.IAAAffine(shear=20, mode='constant'),
         albumentations.IAAPerspective(),

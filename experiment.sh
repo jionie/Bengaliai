@@ -1,1 +1,1 @@
-python train.py --n_splits 10 --seed 2019 --fold 2 --model_type "ResNet34" --loss "ceonehotohem" --lr 2e-1 --num_epoch 100 --batch_size 960 --valid_batch_size 1280 --accumulation_steps 1 --num_workers 12 --early_stopping 20 --apex
+python train.py --n_splits 10 --seed 2019 --fold 2 --model_type "ResNet34" --loss "ceonehotohem" --lr 1e-1 --num_epoch 100 --batch_size 5120 --valid_batch_size 10240 --accumulation_steps 1 --num_workers 14 --early_stopping 20 --apex

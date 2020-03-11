@@ -489,7 +489,7 @@ def training(
                 image[:, :, bbx1:bbx2, bby1:bby2] = image[rand_index, :, bbx1:bbx2, bby1:bby2]
                 
                 # adjust lambda to exactly match pixel ratio
-                # lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
+                lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
                 # lam = 1 - (torch.mean(image[:, :, bbx1:bbx2, bby1:bby2]) / torch.mean(image))
                 
                 # compute output
