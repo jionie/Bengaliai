@@ -84,9 +84,11 @@ class Conv2dBN(nn.Module):
         super(Conv2dBN, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, bias=False, **kwargs)
         self.bn = nn.BatchNorm2d(out_channels, eps=0.001)
+        self.dropout = nn.Dropout(0.25)
 
     def forward(self, x):
         x = self.conv(x)
+        x = self.dropout(x)
         x = self.bn(x)
         return x
     

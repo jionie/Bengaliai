@@ -92,7 +92,7 @@ def crop_resize(img0, size=IMAGE_HEIGHT_RESIZE, pad=16):
 train_transform = albumentations.Compose([
     albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
     albumentations.OneOf([
-        # albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0),
+        albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0),
         albumentations.ShiftScaleRotate(scale_limit=.15, rotate_limit=20, border_mode=cv2.BORDER_CONSTANT),
         albumentations.IAAAffine(shear=20, mode='constant'),
         albumentations.IAAPerspective(),
@@ -170,31 +170,31 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         
         image = np.float32(image)
         
-        # if (self.mode == 'train'):
-        #     for op in np.random.choice([
-        #         lambda image : do_identity(image),
-        #         lambda image : do_random_projective(image, 0.3, p=1),
-        #         lambda image : do_random_perspective(image, 0.3, p=1),
-        #         lambda image : do_random_scale(image, 0.4, p=1),
-        #         lambda image : do_random_rotate(image, 0.4, p=1),
-        #         lambda image : do_random_shear_x(image, 0.5, p=1),
-        #         lambda image : do_random_shear_y(image, 0.4, p=1),
-        #         lambda image : do_random_stretch_x(image, 0.5, p=1),
-        #         lambda image : do_random_stretch_y(image, 0.5, p=1),
-        #         lambda image : do_random_grid_distortion(image, 0.1, p=1),
-        #         lambda image : do_random_custom_distortion1(image, 0.1, p=1),
-        #     ],1):
-        #         image = op(image)
+        if (self.mode == 'train'):
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_projective(image, 0.01, p=0.75),
+                lambda image : do_random_perspective(image, 0.01, p=0.75),
+                lambda image : do_random_scale(image, 0.01, p=0.75),
+                lambda image : do_random_rotate(image, 0.01, p=0.75),
+                lambda image : do_random_shear_x(image, 0.01, p=0.75),
+                lambda image : do_random_shear_y(image, 0.01, p=0.75),
+                lambda image : do_random_stretch_x(image, 0.01, p=0.75),
+                lambda image : do_random_stretch_y(image, 0.01, p=0.75),
+                lambda image : do_random_grid_distortion(image, 0.01, p=0.75),
+                lambda image : do_random_custom_distortion1(image, 0.01, p=0.75),
+            ],1):
+                image = op(image)
 
 
-        #     for op in np.random.choice([
-        #         lambda image : do_identity(image),
-        #         lambda image : do_random_erode(image, 0.2),
-        #         lambda image : do_random_dilate(image, 0.2),
-        #         lambda image : do_random_sprinkle(image, 0.2),
-        #         lambda image : do_random_line(image, 0.3),
-        #     ],1):
-        #         image = op(image)
+            for op in np.random.choice([
+                lambda image : do_identity(image),
+                lambda image : do_random_erode(image, 0.01, p=0.75),
+                lambda image : do_random_dilate(image, 0.01, p=0.75),
+                lambda image : do_random_sprinkle(image, 0.01, p=0.75),
+                lambda image : do_random_line(image, 0.01, p=0.75),
+            ],1):
+                image = op(image)
 
         if not (self.transform is None):
             

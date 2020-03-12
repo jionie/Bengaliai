@@ -96,9 +96,9 @@ parser.add_argument('--alpha', default=0.4, type=float,
                     help='hyperparameter alpha for mixup')
 parser.add_argument('--beta', default=1, type=float,
                     help='hyperparameter beta for  cutmix')
-parser.add_argument('--cutmix_prob', default=1, type=float,
+parser.add_argument('--cutmix_prob', default=0.5, type=float,
                     help='cutmix probability')
-parser.add_argument('--mixup_prob', default=0., type=float,
+parser.add_argument('--mixup_prob', default=0.5, type=float,
                     help='mixup_prob probability')
 parser.add_argument('--apex', action='store_true', default=False, help='whether to use apex')
 parser.add_argument('--freeze_first', action='store_true', default=False, help='whether to freeze backbone first')
@@ -297,7 +297,7 @@ def training(
                                         num_training_steps=num_train_optimization_steps)
         lr_scheduler_each_iter = True
     elif lr_scheduler_name == "ReduceLROnPlateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=3, min_lr=min_lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.6, patience=3, min_lr=min_lr)
         lr_scheduler_each_iter = False
     elif lr_scheduler_name == "OneCycleLR":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, lr, total_steps=None, epochs=num_epoch, \
@@ -462,8 +462,8 @@ def training(
                     cut_h = np.int(H * cut_rat)
 
                     # uniform
-                    cx = np.random.randint(W//2 - W//4, W//2 + W//4)
-                    cy = np.random.randint(H//2 - H//4, H//2 + H//4)
+                    cx = np.random.randint(W)
+                    cy = np.random.randint(H)
 
                     bbx1 = np.clip(cx - cut_w // 2, 0, W)
                     bby1 = np.clip(cy - cut_h // 2, 0, H)
