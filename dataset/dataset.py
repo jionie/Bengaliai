@@ -90,13 +90,18 @@ def crop_resize(img0, size=IMAGE_HEIGHT_RESIZE, pad=16):
 
 ############################## Prapare Augmentation
 train_transform = albumentations.Compose([
+    # albumentations.OneOf([
+    #     albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
+    #     albumentations.RandomResizedCrop(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE, scale=(0.75, 1.0)), 
+    # ], p=1),
     albumentations.Resize(IMAGE_HEIGHT_RESIZE, IMAGE_WIDTH_RESIZE),
     albumentations.OneOf([
-        albumentations.Cutout(num_holes=4, max_h_size=4, max_w_size=4, fill_value=0),
+        # albumentations.Cutout(num_holes=8, max_h_size=2, max_w_size=4, fill_value=0),
+        GridMask(num_grid=(3, 7), p=1),
         albumentations.ShiftScaleRotate(scale_limit=.15, rotate_limit=20, border_mode=cv2.BORDER_CONSTANT),
         albumentations.IAAAffine(shear=20, mode='constant'),
         albumentations.IAAPerspective(),
-        # albumentations.GridDistortion(distort_limit=0.3), 
+        # albumentations.GridDistortion(distort_limit=0.01), 
     ], p=0.8)
     ])
 
@@ -160,7 +165,6 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         # image = \
         #     self.image_df.loc[self.image_df["image_id"] == image_id, self.image_df.columns[1:]].values.reshape(IMAGE_HEIGHT, IMAGE_WIDTH)
             
-        image = 255 - image
         # image = crop_resize(image)
         
         # if ((self.mode == 'train') and (np.random.uniform() < 0.5)):
@@ -168,39 +172,32 @@ class bengaliai_Dataset(torch.utils.data.Dataset):
         #     image = augment_and_mix(image, severity=1, width=1, depth=-1, alpha=1.)
         #     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-        image = np.float32(image)
+        # image = np.float32(image)
         
         if (self.mode == 'train'):
             for op in np.random.choice([
                 lambda image : do_identity(image),
-                lambda image : do_random_projective(image, 0.01, p=0.75),
-                lambda image : do_random_perspective(image, 0.01, p=0.75),
-                lambda image : do_random_scale(image, 0.01, p=0.75),
-                lambda image : do_random_rotate(image, 0.01, p=0.75),
                 lambda image : do_random_shear_x(image, 0.01, p=0.75),
                 lambda image : do_random_shear_y(image, 0.01, p=0.75),
                 lambda image : do_random_stretch_x(image, 0.01, p=0.75),
                 lambda image : do_random_stretch_y(image, 0.01, p=0.75),
-                lambda image : do_random_grid_distortion(image, 0.01, p=0.75),
-                lambda image : do_random_custom_distortion1(image, 0.01, p=0.75),
             ],1):
                 image = op(image)
 
 
-            for op in np.random.choice([
-                lambda image : do_identity(image),
-                lambda image : do_random_erode(image, 0.01, p=0.75),
-                lambda image : do_random_dilate(image, 0.01, p=0.75),
-                lambda image : do_random_sprinkle(image, 0.01, p=0.75),
-                lambda image : do_random_line(image, 0.01, p=0.75),
-            ],1):
-                image = op(image)
+        #     for op in np.random.choice([
+        #         lambda image : do_identity(image),
+        #         lambda image : do_random_erode(image, 0.2, p=0.75),
+        #         lambda image : do_random_dilate(image, 0.2, p=0.75),
+        #     ],1):
+        #         image = op(image)
 
         if not (self.transform is None):
             
             image = self.transform(image=np.float32(image))['image']
         
         image = np.repeat(np.expand_dims(image, axis=0), 3, axis=0).astype(np.float32)
+        image = 255 - image
         image = image / 255
         
         if self.labeled:
@@ -328,7 +325,7 @@ def get_train_val_loaders(data_path="/media/jionie/my_disk/Kaggle/Bengaliai/inpu
         train_loader = torch.utils.data.DataLoader(ds_train, sampler=ImbalancedDatasetSampler(ds_train), \
         batch_size=batch_size, num_workers=num_workers, drop_last=True)
     else:
-        train_loader = torch.utils.data.DataLoader(ds_train, sampler=torch.utils.data.RandomSampler(ds_train), \
+        train_loader = torch.utils.data.DataLoader(ds_train, shuffle=True, \
         batch_size=batch_size, num_workers=num_workers, pin_memory=True, drop_last=True)
     train_loader.num = len(train_df)
 

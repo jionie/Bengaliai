@@ -96,9 +96,9 @@ parser.add_argument('--alpha', default=0.4, type=float,
                     help='hyperparameter alpha for mixup')
 parser.add_argument('--beta', default=1, type=float,
                     help='hyperparameter beta for  cutmix')
-parser.add_argument('--cutmix_prob', default=0.5, type=float,
+parser.add_argument('--cutmix_prob', default=1, type=float,
                     help='cutmix probability')
-parser.add_argument('--mixup_prob', default=0.5, type=float,
+parser.add_argument('--mixup_prob', default=0., type=float,
                     help='mixup_prob probability')
 parser.add_argument('--apex', action='store_true', default=False, help='whether to use apex')
 parser.add_argument('--freeze_first', action='store_true', default=False, help='whether to freeze backbone first')

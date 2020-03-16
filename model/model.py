@@ -192,6 +192,10 @@ class BengaliaiNet(nn.Module):
         #         modules[name] = module
             
             
+        # self.avg_poolings = nn.ModuleList([
+        #     nn.AdaptiveAvgPool2d(1) for _ in range(len(self.n_classes))
+        # ])
+        
         self.avg_poolings = nn.ModuleList([
             GeM() for _ in range(len(self.n_classes))
         ])
@@ -214,16 +218,16 @@ class BengaliaiNet(nn.Module):
             BasicConv2d(64+64+96+32, 3, kernel_size=1, stride=1, padding=0), #bias=0
         )
         
-        # self.tail = nn.ModuleList([
-        #      nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)) for _ in self.n_classes 
-        # ])
-        
         self.tail = nn.ModuleList([
-            nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
-            nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
-            nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
-            nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1))
+             nn.Sequential(Mish(), nn.Conv2d(self.feature_size, 512, 1), nn.Dropout(0.25), nn.BatchNorm2d(512)) for _ in self.n_classes 
         ])
+        
+        # self.tail = nn.ModuleList([
+        #     nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
+        #     nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
+        #     nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1)), \
+        #     nn.Sequential(Mish(), Conv2dBN(self.feature_size, 512, kernel_size=1))
+        # ])
         
         # self.logits = nn.ModuleList(
         #     [ nn.Linear(4096, c) for c in self.n_classes ]
